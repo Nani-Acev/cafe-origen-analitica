@@ -1,4 +1,4 @@
-onst { ventas } = require('./datos');
+const { ventas } = require('./datos');
 const {
   valorVenta,
   totalVendido,
