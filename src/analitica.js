@@ -113,44 +113,55 @@ function ventasPorCiudad(ventas, ciudad) {
 }
 
 function totalVendidoM(ventas) {
-  return ventas.reduce((total, venta) => total + valorVenta(venta), 0);
+  let total = 0;
+  for (const venta of ventas) total += valorVenta(venta);
+  return total;
 }
 
 function unidadesVendidasM(ventas) {
-  return ventas.reduce((unidades, venta) => unidades + cantidadDe(venta), 0);
+  let unidades = 0;
+  for (const venta of ventas) unidades += cantidadDe(venta);
+  return unidades;
 }
 
 function ventasPorCiudadM(ventas, ciudad) {
   const buscada = claveTexto(ciudad);
   if (buscada === '') return 0;
 
-  return ventas
-    .filter((venta) => Boolean(venta) && claveTexto(venta.ciudad) === buscada)
-    .map((venta) => valorVenta(venta))
-    .reduce((total, valor) => total + valor, 0);
+  let total = 0;
+  for (const venta of ventas) {
+    if (venta && claveTexto(venta.ciudad) === buscada) total += valorVenta(venta);
+  }
+  return total;
 }
 
 function totalPorCiudad(ventas) {
-  const grupos = ventas.reduce((acumulado, venta) => {
-    if (!venta) return acumulado;
+  const grupos = {};
+  for (const venta of ventas) {
+    if (!venta) continue;
     const clave = claveTexto(venta.ciudad);
     const nombre = clave === '' ? 'Sin ciudad' : formatearNombreLugar(venta.ciudad);
 
-    if (!acumulado[clave]) {
-      acumulado[clave] = { nombre, total: 0 };
-    } else if (!tieneTildes(acumulado[clave].nombre) && tieneTildes(nombre)) {
-      acumulado[clave].nombre = nombre;
+    if (!grupos[clave]) {
+      grupos[clave] = { nombre, total: 0 };
+    } else if (!tieneTildes(grupos[clave].nombre) && tieneTildes(nombre)) {
+      grupos[clave].nombre = nombre;
     }
-    acumulado[clave].total += valorVenta(venta);
-    return acumulado;
-  }, {});
+    grupos[clave].total += valorVenta(venta);
+  }
 
-  return Object.fromEntries(Object.entries(grupos).map(([, grupo]) => [grupo.nombre, grupo.total]));
+  const resultado = {};
+  for (const clave of Object.keys(grupos)) {
+    const grupo = grupos[clave];
+    resultado[grupo.nombre] = grupo.total;
+  }
+  return resultado;
 }
 
 function agruparPorProducto(ventas) {
-  return ventas.reduce((grupos, venta) => {
-    if (!venta) return grupos;
+  const grupos = {};
+  for (const venta of ventas) {
+    if (!venta) continue;
     const clave = claveTexto(venta.producto);
     if (!grupos[clave]) {
       grupos[clave] = {
@@ -161,24 +172,29 @@ function agruparPorProducto(ventas) {
     }
     grupos[clave].unidades += cantidadDe(venta);
     grupos[clave].valor += valorVenta(venta);
-    return grupos;
-  }, {});
+  }
+  return grupos;
 }
 
 function unidadesPorProducto(ventas) {
-  return Object.fromEntries(
-    Object.entries(agruparPorProducto(ventas)).map(([, grupo]) => [grupo.producto, grupo.unidades])
-  );
+  const grupos = agruparPorProducto(ventas);
+  const resultado = {};
+  for (const clave of Object.keys(grupos)) {
+    const grupo = grupos[clave];
+    resultado[grupo.producto] = grupo.unidades;
+  }
+  return resultado;
 }
 
 function topProductosPorValor(ventas, k = 3) {
   const limite = Number(k);
   if (!Number.isInteger(limite) || limite <= 0) return [];
 
-  return Object.entries(agruparPorProducto(ventas))
-    .map(([, grupo]) => ({ ...grupo }))
-    .sort((a, b) => b.valor - a.valor || a.producto.localeCompare(b.producto, 'es'))
-    .slice(0, limite);
+  const grupos = agruparPorProducto(ventas);
+  const productos = [];
+  for (const clave of Object.keys(grupos)) productos.push({ ...grupos[clave] });
+  productos.sort((a, b) => b.valor - a.valor || a.producto.localeCompare(b.producto, 'es'));
+  return productos.slice(0, limite);
 }
 
 function ventasOrdenadasPorValor(ventas) {
@@ -194,7 +210,10 @@ function esFechaValida(fecha) {
 
 function ventasDelDia(ventas, fecha) {
   const buscada = limpiarTexto(fecha);
-  const delDia = ventas.filter((venta) => Boolean(venta) && limpiarTexto(venta.fecha) === buscada);
+  const delDia = [];
+  for (const venta of ventas) {
+    if (venta && limpiarTexto(venta.fecha) === buscada) delDia.push(venta);
+  }
   const validas = contarVentasValidas(delDia);
 
   return {
@@ -236,4 +255,4 @@ module.exports = {
   ventasDelDia,
 };
 
-// Agrega esto al final de tu archivo para probar:
+
