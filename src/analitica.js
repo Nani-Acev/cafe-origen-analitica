@@ -113,55 +113,50 @@ function ventasPorCiudad(ventas, ciudad) {
 }
 
 function totalVendidoM(ventas) {
-  let total = 0;
-  for (const venta of ventas) total += valorVenta(venta);
-  return total;
+  return ventas
+    .map((venta) => valorVenta(venta))
+    .reduce((total, valor) => total + valor, 0);
 }
 
 function unidadesVendidasM(ventas) {
-  let unidades = 0;
-  for (const venta of ventas) unidades += cantidadDe(venta);
-  return unidades;
+  return ventas
+    .map((venta) => cantidadDe(venta))
+    .reduce((unidades, cantidad) => unidades + cantidad, 0);
 }
 
 function ventasPorCiudadM(ventas, ciudad) {
   const buscada = claveTexto(ciudad);
   if (buscada === '') return 0;
 
-  let total = 0;
-  for (const venta of ventas) {
-    if (venta && claveTexto(venta.ciudad) === buscada) total += valorVenta(venta);
-  }
-  return total;
+  return ventas
+    .filter((venta) => Boolean(venta) && claveTexto(venta.ciudad) === buscada)
+    .map((venta) => valorVenta(venta))
+    .reduce((total, valor) => total + valor, 0);
 }
 
 function totalPorCiudad(ventas) {
-  const grupos = {};
-  for (const venta of ventas) {
-    if (!venta) continue;
+  const grupos = ventas.reduce((acumulado, venta) => {
+    if (!venta) return acumulado;
     const clave = claveTexto(venta.ciudad);
     const nombre = clave === '' ? 'Sin ciudad' : formatearNombreLugar(venta.ciudad);
 
-    if (!grupos[clave]) {
-      grupos[clave] = { nombre, total: 0 };
-    } else if (!tieneTildes(grupos[clave].nombre) && tieneTildes(nombre)) {
-      grupos[clave].nombre = nombre;
+    if (!acumulado[clave]) {
+      acumulado[clave] = { nombre, total: 0 };
+    } else if (!tieneTildes(acumulado[clave].nombre) && tieneTildes(nombre)) {
+      acumulado[clave].nombre = nombre;
     }
-    grupos[clave].total += valorVenta(venta);
-  }
+    acumulado[clave].total += valorVenta(venta);
+    return acumulado;
+  }, {});
 
-  const resultado = {};
-  for (const clave of Object.keys(grupos)) {
-    const grupo = grupos[clave];
-    resultado[grupo.nombre] = grupo.total;
-  }
-  return resultado;
+  return Object.fromEntries(
+    Object.entries(grupos).map(([, grupo]) => [grupo.nombre, grupo.total])
+  );
 }
 
 function agruparPorProducto(ventas) {
-  const grupos = {};
-  for (const venta of ventas) {
-    if (!venta) continue;
+  return ventas.reduce((grupos, venta) => {
+    if (!venta) return grupos;
     const clave = claveTexto(venta.producto);
     if (!grupos[clave]) {
       grupos[clave] = {
@@ -172,29 +167,24 @@ function agruparPorProducto(ventas) {
     }
     grupos[clave].unidades += cantidadDe(venta);
     grupos[clave].valor += valorVenta(venta);
-  }
-  return grupos;
+    return grupos;
+  }, {});
 }
 
 function unidadesPorProducto(ventas) {
-  const grupos = agruparPorProducto(ventas);
-  const resultado = {};
-  for (const clave of Object.keys(grupos)) {
-    const grupo = grupos[clave];
-    resultado[grupo.producto] = grupo.unidades;
-  }
-  return resultado;
+  return Object.fromEntries(
+    Object.entries(agruparPorProducto(ventas)).map(([, grupo]) => [grupo.producto, grupo.unidades])
+  );
 }
 
 function topProductosPorValor(ventas, k = 3) {
   const limite = Number(k);
   if (!Number.isInteger(limite) || limite <= 0) return [];
 
-  const grupos = agruparPorProducto(ventas);
-  const productos = [];
-  for (const clave of Object.keys(grupos)) productos.push({ ...grupos[clave] });
-  productos.sort((a, b) => b.valor - a.valor || a.producto.localeCompare(b.producto, 'es'));
-  return productos.slice(0, limite);
+  return Object.entries(agruparPorProducto(ventas))
+    .map(([, grupo]) => ({ ...grupo }))
+    .sort((a, b) => b.valor - a.valor || a.producto.localeCompare(b.producto, 'es'))
+    .slice(0, limite);
 }
 
 function ventasOrdenadasPorValor(ventas) {
@@ -210,10 +200,9 @@ function esFechaValida(fecha) {
 
 function ventasDelDia(ventas, fecha) {
   const buscada = limpiarTexto(fecha);
-  const delDia = [];
-  for (const venta of ventas) {
-    if (venta && limpiarTexto(venta.fecha) === buscada) delDia.push(venta);
-  }
+  const delDia = ventas.filter(
+    (venta) => Boolean(venta) && limpiarTexto(venta.fecha) === buscada
+  );
   const validas = contarVentasValidas(delDia);
 
   return {
