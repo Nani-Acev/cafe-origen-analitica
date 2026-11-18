@@ -1,33 +1,74 @@
 const { performance } = require('node:perf_hooks');
 const { ventas: ventasMuestra } = require('./datos');
 const { generarVentas } = require('./generador');
-const { clientesRecurrentes } = require('./analitica');
+const {
+  clientesRecurrentes,
+  clientesRecurrentesSet,
+  comprasPorCliente,
+  clientesRecurrentesMap,
+} = require('./analitica');
 
-const esperados = ['C01', 'C02', 'C03'];
-const encontrados = clientesRecurrentes(ventasMuestra);
-console.log('Clientes recurrentes en la muestra:', encontrados);
-if (JSON.stringify(encontrados) !== JSON.stringify(esperados)) {
-  throw new Error(`Se esperaba ${esperados.join(', ')}.`);
+function ordenar(clientes) {
+  return [...clientes].sort();
 }
 
-const tamanos = process.argv.length > 2
-  ? process.argv.slice(2).map(Number)
-  : [1000, 2000, 4000, 8000, 16000];
-if (tamanos.some((n) => !Number.isInteger(n) || n < 1)) {
-  throw new RangeError('Los tamaños deben ser enteros positivos.');
+function verificarIguales(nombre, ventas) {
+  const esperado = ordenar(clientesRecurrentes(ventas));
+  const conSet = ordenar(clientesRecurrentesSet(ventas));
+  const conMap = ordenar(clientesRecurrentesMap(ventas));
+  if (
+    JSON.stringify(esperado) !== JSON.stringify(conSet) ||
+    JSON.stringify(esperado) !== JSON.stringify(conMap)
+  ) {
+    throw new Error(`Las versiones no coinciden: ${nombre}.`);
+  }
+  console.log(`OK: las tres versiones coinciden para ${nombre} (${esperado.length} clientes).`);
 }
-const resultados = [];
 
-for (const n of tamanos) {
-  const ventas = generarVentas(n);
-  const etiqueta = `clientesRecurrentes n=${n}`;
+verificarIguales('los datos del Día 1', ventasMuestra);
+verificarIguales('5.000 ventas generadas', generarVentas(5000));
+verificarIguales('arreglo vacío', []);
+verificarIguales('un cliente repetido varias veces', [
+  { cliente: 'C01' },
+  { cliente: 'C01' },
+  { cliente: 'C01' },
+]);
+
+const conteosEjemplo = comprasPorCliente([
+  { cliente: 'C01' },
+  { cliente: 'C02' },
+  { cliente: 'C01' },
+]);
+if (conteosEjemplo.get('C01') !== 2 || conteosEjemplo.get('C02') !== 1) {
+  throw new Error('comprasPorCliente no produjo los conteos esperados.');
+}
+
+function medir(nombre, funcion, ventas) {
+  const etiqueta = `${nombre} n=${ventas.length}`;
   console.time(etiqueta);
   const inicio = performance.now();
-  clientesRecurrentes(ventas);
-  const milisegundos = performance.now() - inicio;
+  const resultado = funcion(ventas);
+  const ms = performance.now() - inicio;
   console.timeEnd(etiqueta);
-  resultados.push({ n, milisegundos: Number(milisegundos.toFixed(3)) });
+  return { version: nombre, n: ventas.length, milisegundos: Number(ms.toFixed(3)), clientes: resultado.length };
 }
 
-console.log('\nResumen de tiempos (ms):');
+const resultados = [];
+for (const n of [1000, 10000, 100000]) {
+  const ventas = generarVentas(n);
+  if (n <= 10000) resultados.push(medir('original', clientesRecurrentes, ventas));
+  else {
+    resultados.push({
+      version: 'original',
+      n,
+      milisegundos: 'omitido (58,6 s medidos anteriormente)',
+      clientes: '—',
+    });
+  }
+
+  resultados.push(medir('Set', clientesRecurrentesSet, ventas));
+  resultados.push(medir('Map', clientesRecurrentesMap, ventas));
+}
+
+console.log('\nComparación de rendimiento:');
 console.table(resultados);

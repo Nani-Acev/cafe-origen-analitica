@@ -487,3 +487,58 @@ Un revisor técnico independiente encontró correctas las clases de complejidad,
 **Respuesta y cambio aplicado:** añadí `src/medir-rendimiento.js`, que crea 10.000 ventas, calienta las funciones una vez, promedia tres ejecuciones con `performance.now()` y muestra una tabla con las funciones analíticas, utilidades y reporte. También reproduce los contadores instrumentados y comprueba que las dos versiones de total por ciudad coincidan. En una segunda pasada, el revisor señaló que mediciones menores a 0,001 ms podían redondearse a cero; ajusté la salida del script para mostrarlas como `<0.001`. El informe indica que los tiempos pueden variar porque cada corrida genera otra muestra aleatoria. Para reproducirlo se ejecuta `node src/medir-rendimiento.js`.
 
 La observación mejoró la evidencia: quien revise el documento ahora puede volver a ejecutar el benchmark en el mismo repositorio y comparar el orden de magnitud, sin depender de cifras presentadas como universales.
+
+---
+
+## MiniReto 9 · Optimización de clientes recurrentes
+
+### 1. Entender el problema
+
+- **Entrada:** arreglo de ventas; cada registro tiene un código `cliente`.
+- **Salida:** arreglo de códigos de cliente que aparecen en más de una venta, sin duplicados.
+- **Restricciones:** conservar el significado de la versión original; no modificar las ventas; responder con 100.000 ventas en menos de un segundo; el orden de los resultados no es requisito.
+
+### 2. Ejemplos y casos borde
+
+| Entrada de clientes | Salida esperada | Motivo |
+|---|---|---|
+| `[]` | `[]` | No hay compras. |
+| `[C01]` | `[]` | Una compra no es recurrencia. |
+| `[C01, C02, C01, C03, C02]` | `[C01, C02]` | Ambos aparecen más de una vez y se listan una sola vez. |
+| Datos del Día 1 | `[C01, C02, C03]` | Son los tres códigos repetidos en la muestra. |
+
+### 3. Fuerza bruta
+
+`clientesRecurrentes` compara cada pareja `(i, j)`, con `j > i`, por lo que realiza `n(n - 1) / 2` comparaciones: O(n²). Cuando encuentra una pareja igual, `includes` busca el cliente en el arreglo de salida; esa búsqueda puede ser O(r). El peor caso del código puede llegar a O(n³) cuando hay O(n²) coincidencias y `includes` recorre un arreglo O(n). Con datos generados ya se había medido 58,632 segundos para 100.000 ventas.
+
+### 4. Idea de optimización
+
+Guardar en una estructura hash la información ya vista evita comparar una compra con todas las demás. En la alternativa con Set, `vistos` detecta la segunda compra y `recurrentes` evita repetir el código de salida. En la alternativa con Map, `comprasPorCliente` acumula el número de compras de cada cliente y una pasada por ese Map selecciona los conteos mayores que uno. Las operaciones de `Set` y `Map` tienen costo promedio O(1), de modo que el tiempo esperado es O(n). Se paga memoria adicional proporcional a los clientes únicos.
+
+### 5. Implementación
+
+Se añadieron a `src/analitica.js`:
+
+- `clientesRecurrentesSet(ventas)`: un Set de vistos y otro de recurrentes.
+- `comprasPorCliente(ventas)`: Map de cliente a cantidad de compras.
+- `clientesRecurrentesMap(ventas)`: deriva la lista recurrente del Map de conteos.
+
+La fuerza bruta se conserva como referencia para comparar su resultado y su costo.
+
+### 6. Pruebas y mediciones
+
+`node src/recurrentes.js` compara las tres versiones ordenando copias de sus resultados. Las tres coincidieron con los datos del Día 1, con 5.000 ventas generadas, con el arreglo vacío y con un solo cliente repetido varias veces. En el conjunto generado de 5.000 ventas se encontraron 1.318 clientes recurrentes.
+
+Tiempos medidos con `console.time` en una ejecución de Node.js:
+
+| Ventas | Fuerza bruta original | Set | Map |
+|---:|---:|---:|---:|
+| 1.000 | 5,346 ms | 0,108 ms | 0,080 ms |
+| 10.000 | 440,892 ms | 0,993 ms | 0,987 ms |
+| 100.000 | No ejecutada; había tardado 58,632 s en una medición previa | 13,741 ms | 9,510 ms |
+
+Con 100.000 ventas, Set y Map quedaron ampliamente por debajo del límite de un segundo. Los tiempos cambian con el equipo, el motor de JavaScript y la muestra aleatoria; la tendencia sí coincide con las pasadas lineales del nuevo código. La tabla compara una única corrida por versión y tamaño, no una garantía de latencia.
+
+### Intercambio entre tiempo y memoria
+
+La versión original conserva solo el arreglo de salida, O(r) memoria, pero repite búsquedas. La versión Set mantiene `vistos`, `recurrentes` y el arreglo devuelto; la versión Map mantiene los conteos y el arreglo de salida. Ambas optimizadas usan O(u + r), que queda en O(u) porque `r ≤ u`; en el peor caso u puede crecer hasta n. Se acepta esa memoria adicional para reducir el trabajo esperado de cuadrático/cúbico a lineal.

@@ -37,6 +37,9 @@ Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas 
 | `esFechaValida` | Valida una fecha | O(s) | O(s) | Comprueba formato y crea una cadena/fecha auxiliar; s es longitud de fecha | 10.000 llamadas: 8,529 ms |
 | `ventasDelDia` | Resume las ventas de una fecha | O(n) | O(n) | `filter` crea una lista de hasta n ventas; luego calcula sus indicadores | 10.000 registros: 0,892 ms |
 | `clientesRecurrentes` | Encuentra clientes con más de una compra | O(n³) peor caso | O(r), peor O(n) | Ciclos de pares O(n²) y `includes` puede recorrer hasta r clientes en cada coincidencia | 10.000 registros: 388,951 ms; en 100.000: 58,632 s |
+| `clientesRecurrentesSet` | Devuelve los clientes vistos más de una vez | O(n) esperado | O(u + r) = O(u) | Dos Set guardan vistos y recurrentes; una pasada revisa las ventas | 10.000 registros: 0,721 ms; 100.000: 20,411 ms |
+| `comprasPorCliente` | Cuenta compras por código de cliente | O(n) esperado | O(u) | Un recorrido actualiza el Map de clientes únicos | 10.000 registros: 0,563 ms; se usa como base de la versión Map |
+| `clientesRecurrentesMap` | Deriva recurrentes del Map de conteos | O(n + u) = O(n) esperado | O(u + r) = O(u) | Cuenta n ventas y recorre u entradas para seleccionar las recurrentes | 10.000 registros: 0,620 ms; 100.000: 10,222 ms |
 
 `s` es el largo del texto de entrada. Para una venta cuyo tamaño de campo no crece con el historial, esos helpers son O(1) respecto a n. En `topProductosPorValor`, `p` puede llegar a n; con el catálogo actual p es pequeño y acotado.
 
@@ -65,7 +68,7 @@ Los formateadores (`pesos`, `numero`, `porcentaje`, `titulo`, `dato`, `describir
 
 ## Proyección a 1.000.000 de ventas
 
-Las proyecciones lineales multiplican el tiempo de n=10.000 por 100. Para O(n log n), el factor es aproximadamente 150: `(1.000.000 log 1.000.000) / (10.000 log 10.000)`. Se mantienen las fechas predeterminadas del reporte (`q = 2`) y el catálogo actual. Para clientes recurrentes se usa la medición real de 100.000 y el crecimiento cuadrático observado en datos generados. No se ejecutaron las funciones con un millón de registros.
+Las proyecciones lineales multiplican el tiempo de n=10.000 por 100. Para O(n log n), el factor es aproximadamente 150: `(1.000.000 log 1.000.000) / (10.000 log 10.000)`. Se mantienen las fechas predeterminadas del reporte (`q = 2`) y el catálogo actual. Para la versión original de clientes recurrentes se usa la medición real de 100.000 y el crecimiento observado; para Set y Map se proyecta linealmente desde las mediciones de 100.000. No se ejecutaron funciones con un millón de registros.
 
 | Operación / reporte | Evidencia de 10.000 | Modelo de proyección | Estimación para 1.000.000 |
 |---|---:|---|---:|
@@ -83,15 +86,17 @@ Las proyecciones lineales multiplican el tiempo de n=10.000 por 100. Para O(n lo
 | Reporte completo (dos fechas) | 26,324 ms | O(n log n), ×150 | 3,95 s |
 | Validación del reporte | 10,826 ms | O(n), ×100 | 1,08 s |
 | Generar un millón de filas sintéticas | 1,140 ms para 10.000 | O(n), ×100 | 114 ms |
-| Clientes recurrentes | 58,632 s para 100.000 | O(n²) observado en este generador, ×100 | 97,7 min |
+| Clientes recurrentes original (referencia) | 58,632 s para 100.000 | O(n²) observado en este generador, ×100 | 97,7 min |
+| Clientes recurrentes con Set | 20,411 ms para 100.000 | O(n) esperado, ×10 | 204 ms |
+| Clientes recurrentes con Map | 10,222 ms para 100.000 | O(n) esperado, ×10 | 102 ms |
 
-La proyección de clientes recurrentes es especialmente incierta: los datos generados no cubren todas las distribuciones posibles y el peor caso del algoritmo es O(n³) por `includes`. Por eso 97,7 minutos es una estimación del patrón observado, no un límite superior ni un SLA. La implementación no debe procesar un millón de ventas en una ruta interactiva sin optimizarla primero.
+La proyección de la versión original de clientes recurrentes es especialmente incierta: los datos generados no cubren todas las distribuciones posibles y el peor caso es O(n³) por `includes`. Por eso 97,7 minutos es una estimación del patrón observado, no un límite superior ni un SLA. Set y Map respondieron en 20,411 ms y 10,222 ms con 100.000 ventas generadas; sus proyecciones son inferiores a un segundo, aunque deben volver a medirse con datos representativos del marketplace.
 
 ## Riesgos, de mayor a menor
 
 El orden considera primero el peor crecimiento temporal, luego la memoria auxiliar y, finalmente, la medición en datos generados. Las proyecciones describen esta ejecución; las clases Big O describen cómo puede crecer el código.
 
-1. **`clientesRecurrentes` — riesgo crítico.** Su peor caso es O(n³) por repetir `includes` sobre el arreglo de clientes recurrentes dentro de pares coincidentes. Ya tardó 58,632 s con 100.000 ventas generadas; el modelo cuadrático observado proyecta casi 98 minutos para un millón.
+1. **`clientesRecurrentes` original — riesgo crítico si se invoca.** Se conserva como referencia; su peor caso es O(n³) por repetir `includes` dentro de los pares. Ya tardó 58,632 s con 100.000 ventas. En el flujo de producción debe usarse `clientesRecurrentesMap` o `clientesRecurrentesSet`, ambos O(n) esperado.
 2. **`generarReporte` — riesgo alto de CPU y memoria.** Ordena n fechas, procesa los registros para distintos indicadores y filtra una vez por cada fecha solicitada. También mantiene arrays y líneas del reporte; la medición proyecta unos 4,10 s y memoria O(n) con un millón.
 3. **`ventasOrdenadasPorValor` — riesgo alto de memoria.** Ordenar requiere O(n log n) tiempo y la copia `[...ventas]` usa O(n) memoria adicional.
 4. **Cadenas de métodos y filtros diarios — riesgo de memoria.** `totalCiudadCadena`, `ventasPorCiudadM`, `totalVendidoM`, `unidadesVendidasM` y `ventasDelDia` materializan arreglos O(n). Su tiempo es lineal, pero hay más objetos vivos y presión sobre el recolector.
@@ -100,14 +105,12 @@ El orden considera primero el peor crecimiento temporal, luego la memoria auxili
 
 ## Plan de optimización
 
-La primera prioridad es `clientesRecurrentes`. Hoy compara cada venta contra las posteriores y, al encontrar coincidencias, busca de nuevo el cliente en `recurrentes` con `includes`. Ese trabajo se repite para el mismo cliente y puede escanear una lista creciente.
-
-La mejora propuesta, aún no implementada, es recorrer las ventas una sola vez y guardar en un `Map` el contador de compras por cliente. Después, un segundo recorrido del mapa seleccionaría los clientes con conteo mayor a uno. Así se reemplazan las comparaciones de pares y las búsquedas repetidas por conteos directos: tiempo esperado O(n) y memoria O(u), donde u es la cantidad de clientes únicos. Antes de adoptar el cambio, se compararía la salida con la función actual en el conjunto de 12 ventas y en datos generados.
+La prioridad era `clientesRecurrentes`: comparaba cada venta contra las posteriores y, al encontrar coincidencias, volvía a buscar el cliente en `recurrentes` con `includes`. Ese trabajo se repetía y podía escanear una lista creciente. El MiniReto 9 implementó el plan: `comprasPorCliente` cuenta una vez cada código con un Map y `clientesRecurrentesMap` filtra los conteos mayores a uno; la alternativa Set conserva dos conjuntos de pertenencia. En las mediciones de 100.000 ventas, ambas terminaron por debajo de un segundo. La versión recomendada para producir el reporte es Map porque ya entrega los conteos por cliente si el marketplace los solicita; la función original queda solo para comparar.
 
 ## Fuentes reproducibles en el repositorio
 
 - `node src/medir.js`: operaciones contadas para n = 100, 1.000, 10.000 y 100.000.
 - `node src/medir-rendimiento.js`: promedios de tiempo con 10.000 ventas para las funciones analíticas y el reporte, más sus contadores instrumentados.
-- `node src/recurrentes.js`: tiempos de clientes recurrentes para 1.000 a 16.000; `node src/recurrentes.js 100000` mide 100.000.
+- `node src/recurrentes.js`: compara original, Set y Map en 1.000, 10.000 y 100.000 ventas; omite la original a 100.000 por su tiempo previo de 58,6 s.
 - `node src/reporte.js`: reporte integrado y comprobaciones contra `NaN`, `undefined` y ciudades duplicadas.
 - `node src/verificar.js`: equivalencia de ciclos y métodos y conservación del arreglo original.
