@@ -13,6 +13,8 @@ Está escrito en JavaScript (Node.js) con CommonJS y no tiene dependencias exter
 - ¿Cuántas unidades se vendieron de cada producto?
 - ¿Cuáles son los 3 productos que más dinero generaron?
 - ¿Cómo le fue a un día específico, incluso si ese día no hubo ventas?
+- ¿Qué dos productos del catálogo suman el valor de una tarjeta regalo?
+- ¿Cuál es el producto estrella de cada ciudad y quién es el primer cliente que compró una sola vez?
 
 ## Requisitos
 
@@ -48,6 +50,7 @@ Otros scripts:
 cafe-origen-analitica/
 ├── src/
 │   ├── datos.js                Muestra de 12 ventas, tal como se exportó
+│   ├── catalogo.js             Productos y precios para combos de regalo
 │   ├── analitica.js            Funciones puras de cálculo
 │   ├── explorar.js             Exploración de los datos
 │   ├── pruebas.js              Pruebas de las funciones con ciclos

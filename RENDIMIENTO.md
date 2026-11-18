@@ -2,7 +2,7 @@
 
 ## Alcance y método
 
-Este informe clasifica las funciones de `src/analitica.js` y las operaciones principales de generación, instrumentación y reporte. `n` representa el número de ventas; `d`, ciudades distintas; `p`, productos distintos; `r`, clientes recurrentes; `k`, el límite del ranking; y `q`, fechas solicitadas. Se excluye el arreglo de entrada al calcular espacio y se incluye cualquier arreglo u objeto auxiliar o devuelto.
+Este informe clasifica las funciones de `src/analitica.js` y las operaciones principales de generación, instrumentación y reporte. `n` representa el número de ventas; `c`, productos del catálogo; `d`, ciudades distintas; `p`, productos distintos; `g`, pares ciudad-producto distintos; `u`, clientes únicos; `r`, clientes recurrentes; `k`, el límite del ranking; y `q`, fechas solicitadas. Se excluye el arreglo de entrada al calcular espacio y se incluye cualquier arreglo u objeto auxiliar o devuelto.
 
 Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas de `generarVentas`. Para las funciones analíticas se calentó una vez y se promediaron tres ejecuciones con `performance.now()`. Los helpers escalares se llamaron 10.000 veces. Los tiempos y contadores se pueden reproducir con `node src/medir-rendimiento.js`; cada ejecución genera nuevos datos aleatorios, así que los tiempos pueden variar. Los valores de este informe son evidencia de una ejecución, no garantías para otro equipo ni para otra distribución aleatoria.
 
@@ -40,6 +40,10 @@ Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas 
 | `clientesRecurrentesSet` | Devuelve los clientes vistos más de una vez | O(n) esperado | O(u + r) = O(u) | Dos Set guardan vistos y recurrentes; una pasada revisa las ventas | 10.000 registros: 0,721 ms; 100.000: 20,411 ms |
 | `comprasPorCliente` | Cuenta compras por código de cliente | O(n) esperado | O(u) | Un recorrido actualiza el Map de clientes únicos | 10.000 registros: 0,563 ms; se usa como base de la versión Map |
 | `clientesRecurrentesMap` | Deriva recurrentes del Map de conteos | O(n + u) = O(n) esperado | O(u + r) = O(u) | Cuenta n ventas y recorre u entradas para seleccionar las recurrentes | 10.000 registros: 0,620 ms; 100.000: 10,222 ms |
+| `comboRegaloBruta` | Busca dos productos cuya suma sea un precio objetivo | O(c²) | O(1) | Dos ciclos prueban cada pareja del catálogo | Catálogo de 8 productos: 0,006 ms |
+| `comboRegalo` | Busca el complemento del precio con Map | O(c) esperado | O(c) | Un recorrido y búsquedas promedio constantes de complemento | Catálogo de 8 productos: 0,001 ms |
+| `productoEstrellaPorCiudad` | Cuenta y selecciona el producto más vendido por ciudad | O(n + g) esperado = O(n) | O(g), peor O(n) | Un recorrido crea Maps anidados; un recorrido por los grupos selecciona máximos | 10.000 ventas: 8,497 ms |
+| `primerClienteUnico` | Devuelve el primer cliente con una compra | O(n + u) esperado = O(n) | O(u) | Primer recorrido cuenta en Map; segundo respeta el orden de ventas | 10.000 ventas: 0,558 ms |
 
 `s` es el largo del texto de entrada. Para una venta cuyo tamaño de campo no crece con el historial, esos helpers son O(1) respecto a n. En `topProductosPorValor`, `p` puede llegar a n; con el catálogo actual p es pequeño y acotado.
 

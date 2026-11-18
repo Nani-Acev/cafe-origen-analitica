@@ -302,6 +302,95 @@ function clientesRecurrentesMap(ventas) {
   return recurrentes;
 }
 
+function comboRegaloBruta(catalogo, valor) {
+  for (let i = 0; i < catalogo.length; i++) {
+    for (let j = i + 1; j < catalogo.length; j++) {
+      if (catalogo[i].precio + catalogo[j].precio === valor) {
+        return [catalogo[i], catalogo[j]];
+      }
+    }
+  }
+  return null;
+}
+
+function comboRegalo(catalogo, valor) {
+  const productosPorPrecio = new Map();
+
+  for (const producto of catalogo) {
+    const complemento = valor - producto.precio;
+    if (productosPorPrecio.has(complemento)) {
+      return [productosPorPrecio.get(complemento), producto];
+    }
+    productosPorPrecio.set(producto.precio, producto);
+  }
+
+  return null;
+}
+
+function productoEstrellaPorCiudad(ventas) {
+  const conteosPorCiudad = new Map();
+
+  for (const venta of ventas) {
+    const claveCiudad = claveTexto(venta.ciudad);
+    const claveProducto = claveTexto(venta.producto);
+    let ciudad = conteosPorCiudad.get(claveCiudad);
+
+    if (!ciudad) {
+      ciudad = {
+        nombre: claveCiudad ? formatearNombreLugar(venta.ciudad) : 'Sin ciudad',
+        productos: new Map(),
+      };
+      conteosPorCiudad.set(claveCiudad, ciudad);
+    }
+
+    const producto = ciudad.productos.get(claveProducto);
+    if (producto) {
+      producto.apariciones++;
+    } else {
+      ciudad.productos.set(claveProducto, {
+        nombre: limpiarTexto(venta.producto) || 'Sin producto',
+        apariciones: 1,
+      });
+    }
+  }
+
+  const estrellas = [];
+  for (const [ciudad, conteos] of conteosPorCiudad) {
+    let estrella = null;
+    for (const producto of conteos.productos.values()) {
+      // En empate se conserva el primer producto encontrado en esa ciudad.
+      if (estrella === null || producto.apariciones > estrella.apariciones) {
+        estrella = producto;
+      }
+    }
+    if (estrella !== null) {
+      estrellas.push({
+        ciudad: conteos.nombre || (ciudad ? formatearNombreLugar(ciudad) : 'Sin ciudad'),
+        producto: estrella.nombre,
+        apariciones: estrella.apariciones,
+      });
+    }
+  }
+
+  return estrellas;
+}
+
+function primerClienteUnico(ventas) {
+  const comprasPorCliente = new Map();
+
+  for (const venta of ventas) {
+    const cliente = venta.cliente;
+    const compras = comprasPorCliente.get(cliente) || 0;
+    comprasPorCliente.set(cliente, compras + 1);
+  }
+
+  for (const venta of ventas) {
+    if (comprasPorCliente.get(venta.cliente) === 1) return venta.cliente;
+  }
+
+  return null;
+}
+
 module.exports = {
   limpiarTexto,
   claveTexto,
@@ -332,6 +421,10 @@ module.exports = {
   clientesRecurrentesSet,
   comprasPorCliente,
   clientesRecurrentesMap,
+  comboRegaloBruta,
+  comboRegalo,
+  productoEstrellaPorCiudad,
+  primerClienteUnico,
 };
 
 

@@ -542,3 +542,75 @@ Con 100.000 ventas, Set y Map quedaron ampliamente por debajo del límite de un 
 ### Intercambio entre tiempo y memoria
 
 La versión original conserva solo el arreglo de salida, O(r) memoria, pero repite búsquedas. La versión Set mantiene `vistos`, `recurrentes` y el arreglo devuelto; la versión Map mantiene los conteos y el arreglo de salida. Ambas optimizadas usan O(u + r), que queda en O(u) porque `r ≤ u`; en el peor caso u puede crecer hasta n. Se acepta esa memoria adicional para reducir el trabajo esperado de cuadrático/cúbico a lineal.
+
+---
+
+## MiniReto 10 · Complementos, productos estrella y cliente único
+
+### 1. Entender
+
+- `comboRegalo(catalogo, valor)` recibe productos con `producto` y `precio`; devuelve dos productos distintos cuya suma es el valor o `null`. El Map solo debe contener elementos anteriores al actual para no usar el mismo producto dos veces.
+- `productoEstrellaPorCiudad(ventas)` recibe las líneas de venta y devuelve por ciudad el producto con más apariciones. Se cuentan registros, no unidades; cada línea es una aparición.
+- `primerClienteUnico(ventas)` devuelve el primer código, según el orden de entrada, que aparece exactamente una vez, o `null` si nadie cumple.
+- Restricciones comunes: no cambiar los arreglos de entrada; agrupar ciudades con la normalización existente; resolver empates de forma estable y documentada.
+
+El catálogo de campaña está en `src/catalogo.js` y conserva nombre y precio en cada objeto.
+
+### 2. Ejemplos y casos borde
+
+| Caso | Resultado |
+|---|---|
+| Combo de 87.000 | Origen Huila 500 g (42.000) + Origen Sierra 500 g (45.000) |
+| Combo de 61.000 | Origen Nariño 250 g (26.000) + Taza de cerámica (35.000) |
+| Combo de 100.000 | `null`, no hay pareja en el catálogo |
+| Catálogo vacío o ventas vacías | `comboRegalo` devuelve `null`; las funciones de ventas devuelven `[]` y `null`, respectivamente |
+| Empate en una ciudad | Gana el primer producto que apareció en esa ciudad |
+| Todos los clientes repiten | `primerClienteUnico` devuelve `null` |
+
+### 3. Fuerza bruta y complejidad
+
+`comboRegaloBruta` prueba cada pareja de índices con `j > i`. Para c productos hace `c(c - 1) / 2` sumas/comparaciones en el peor caso: tiempo O(c²), memoria adicional O(1), aparte del arreglo de dos productos devuelto.
+
+### 4. Idea optimizada
+
+Para cada precio p, solo hace falta preguntar si `valor - p` apareció antes. El Map de precios vistos resuelve esa consulta en tiempo promedio O(1), así que un recorrido cuesta O(c) esperado y guarda hasta c precios: O(c) de memoria. La búsqueda se hace antes de insertar el producto actual; así se garantiza que los dos productos sean distintos.
+
+Para frecuencias, un Map anidado agrupa ciudad → producto → apariciones. Para cliente único, el primer recorrido cuenta compras con Map y el segundo recorre las ventas en su orden original buscando el primer conteo igual a uno.
+
+### 5. Traza optimizada para 87.000
+
+Se recorre el catálogo en el orden de `src/catalogo.js`:
+
+| Producto actual | Precio | Complemento buscado | Map antes de revisar | Acción |
+|---|---:|---:|---|---|
+| Origen Nariño 250 g | 26.000 | 61.000 | vacío | No existe; guardar 26.000 → Nariño |
+| Origen Huila 500 g | 42.000 | 45.000 | 26.000 → Nariño | No existe; guardar 42.000 → Huila |
+| Origen Sierra 500 g | 45.000 | 42.000 | 26.000 → Nariño; 42.000 → Huila | Sí existe; devolver Huila + Sierra |
+
+La búsqueda se detiene en el tercer producto. En el caso de 61.000, al llegar a Taza (35.000), el complemento 26.000 ya está en el Map y se devuelve Nariño + Taza. Con 100.000 se recorre todo el catálogo y se devuelve `null`.
+
+### 6. Implementación y verificación
+
+Las funciones están en `src/analitica.js`: `comboRegaloBruta`, `comboRegalo`, `productoEstrellaPorCiudad` y `primerClienteUnico`. Los resultados con las ventas del Día 1 son:
+
+| Ciudad | Producto estrella | Apariciones | Regla aplicada |
+|---|---|---:|---|
+| Medellín | Origen Huila 500 g | 2 | Mayor frecuencia |
+| Bogotá | Origen Nariño 250 g | 3 | Mayor frecuencia |
+| Cali | Prensa francesa | 1 | Empate; fue la primera observada en Cali |
+| Pereira | Origen Huila 500 g | 1 | Única venta de la ciudad |
+
+`primerClienteUnico(ventas)` devuelve `C04`: C01, C02 y C03 vuelven a aparecer; C04 es el primer código cuyo total es uno. Se conserva el orden de entrada para resolver “primero”.
+
+### Complejidad y espacio
+
+| Función | Tiempo | Espacio adicional | Justificación |
+|---|---|---|---|
+| `comboRegaloBruta` | O(c²) | O(1) | Prueba todas las parejas. |
+| `comboRegalo` | O(c) esperado | O(c) | Un recorrido y un Map de precios vistos. |
+| `productoEstrellaPorCiudad` | O(n) esperado | O(g) | Un recorrido crea g combinaciones ciudad-producto y luego se examinan esos grupos una vez; g ≤ n. |
+| `primerClienteUnico` | O(n) esperado | O(u) | Dos recorridos y un Map con u clientes únicos. |
+
+### Pruebas realizadas
+
+Se compararon `comboRegaloBruta` y `comboRegalo` para valores 87.000, 61.000 y 100.000; ambas versiones encontraron parejas equivalentes para los dos primeros y devolvieron `null` para el tercero. También se comprobó que el producto estrella coincide con las cuatro filas de la tabla y que el primer cliente único es C04. Los casos sin datos devuelven `null` o arreglos vacíos sin error.

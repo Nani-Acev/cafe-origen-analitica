@@ -1,6 +1,7 @@
 const { performance } = require('node:perf_hooks');
 const analitica = require('./analitica');
 const { generarVentas } = require('./generador');
+const { catalogo } = require('./catalogo');
 const instrumentadas = require('./instrumentadas');
 const reporte = require('./reporte');
 
@@ -47,6 +48,10 @@ const mediciones = [
   ['clientesRecurrentesSet', () => analitica.clientesRecurrentesSet(ventas)],
   ['comprasPorCliente', () => analitica.comprasPorCliente(ventas)],
   ['clientesRecurrentesMap', () => analitica.clientesRecurrentesMap(ventas)],
+  ['comboRegaloBruta (catálogo)', () => analitica.comboRegaloBruta(catalogo, 87000)],
+  ['comboRegalo (catálogo)', () => analitica.comboRegalo(catalogo, 87000)],
+  ['productoEstrellaPorCiudad', () => analitica.productoEstrellaPorCiudad(ventas)],
+  ['primerClienteUnico', () => analitica.primerClienteUnico(ventas)],
   ['totalVendidoInstrumentado', () => instrumentadas.totalVendidoInstrumentado(ventas, { operaciones: 0 })],
   ['ventaMayorInstrumentada', () => instrumentadas.ventaMayorInstrumentada(ventas, { operaciones: 0 })],
   ['totalPorCiudadInstrumentado', () => instrumentadas.totalPorCiudadInstrumentado(ventas, { operaciones: 0 })],
