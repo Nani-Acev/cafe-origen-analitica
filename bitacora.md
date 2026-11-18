@@ -313,3 +313,53 @@ El reporte se genera con `node src/reporte.js`. La gerente puede pasar las fecha
 | `node src/reproducir-errores.js` | Los dos errores se reproducen con la versión defectuosa y quedan corregidos en la v0.1. |
 
 El reporte también se probó con un arreglo vacío (todas las secciones muestran "No hay ventas registradas" o valores en cero) y con una fecha inválida (`2026-13-01`), que muestra un mensaje que indica el formato correcto.
+
+---
+
+## MiniReto 5 · Generador y crecimiento de operaciones
+
+### Predicción previa a medir
+
+Antes de ejecutar `node src/medir.js`, la predicción es que las tres funciones que recorren todas las ventas tendrán crecimiento lineal. Al multiplicar `n` por 10, sus operaciones deben multiplicarse aproximadamente por 10. `primeraVentaInstrumentada` solo consulta la longitud y el primer elemento, así que su contador debe permanecer constante.
+
+| Función | Predicción si `n` × 10 | Complejidad esperada |
+|---|---:|---|
+| `totalVendidoInstrumentado` | operaciones × 10 | O(n) |
+| `ventaMayorInstrumentada` | operaciones × 10 aproximadamente | O(n) |
+| `totalPorCiudadInstrumentado` | operaciones × 10 aproximadamente | O(n) |
+| `primeraVentaInstrumentada` | no cambia | O(1) |
+
+El generador escoge al azar entre cinco productos con su precio, cuatro ciudades, fechas de septiembre de 2026 y cantidades de 1 a 5. Usa como máximo `floor(n / 3)` códigos de cliente distintos, con un mínimo de uno para que `generarVentas(1)` también pueda producir un cliente. Cada venta conserva las siete propiedades de la muestra: `id`, `fecha`, `cliente`, `producto`, `ciudad`, `cantidad` y `precio`.
+
+### Qué cuenta el contador
+
+Las funciones reciben el mismo objeto `{ operaciones: 0 }` por referencia y lo incrementan en cada visita de registro, comparación explícita o acceso contabilizado. No se cuentan las operaciones internas de JavaScript ni la contabilidad que hace el propio contador.
+
+- `totalVendidoInstrumentado`: una visita por registro, `n` operaciones.
+- `ventaMayorInstrumentada`: por venta generada cuenta la visita, la comprobación de registro, la validación de cantidad y la comprobación del máximo; después del primer registro añade una comparación de valor. Como el generador crea cantidades positivas, el total observado es `5n - 1`.
+- `totalPorCiudadInstrumentado`: por venta cuenta visita, comprobación del registro y existencia del grupo; por ciudad distinta cuenta la comparación para elegir el nombre y una visita al formar el objeto de salida. En la medición aparecieron las cuatro ciudades, así que fueron `3n + 8` operaciones.
+- `primeraVentaInstrumentada`: una comprobación de longitud y un acceso al índice cero; son 2 operaciones para todos los tamaños positivos medidos.
+
+### Resultados y comparación con la predicción
+
+Salida de `node src/medir.js`:
+
+| `n` | `totalVendido` | `ventaMayor` | `totalPorCiudad` | `primeraVenta` |
+|---:|---:|---:|---:|---:|
+| 100 | 100 | 499 | 308 | 2 |
+| 1.000 | 1.000 | 4.999 | 3.008 | 2 |
+| 10.000 | 10.000 | 49.999 | 30.008 | 2 |
+| 100.000 | 100.000 | 499.999 | 300.008 | 2 |
+
+Al multiplicar `n` por 10, `totalVendido` multiplica sus operaciones exactamente por 10. `ventaMayor` pasa de 499 a 4.999, luego a 49.999 y a 499.999: el factor se acerca a 10 porque la fórmula es `5n - 1`. `totalPorCiudad` pasa de 308 a 3.008, 30.008 y 300.008; el pequeño término fijo de ocho operaciones (cuatro ciudades) hace que la razón se acerque a 10. `primeraVenta` conserva 2 operaciones.
+
+### Clasificación Big O
+
+| Función | Clasificación | Justificación en el código y la medición |
+|---|---|---|
+| `totalVendidoInstrumentado` | O(n) | Un ciclo visita cada venta una vez; los resultados fueron `n` operaciones. |
+| `ventaMayorInstrumentada` | O(n) | Un ciclo revisa cada venta y compara contra el máximo actual; `5n - 1` crece linealmente. |
+| `totalPorCiudadInstrumentado` | O(n) | Recorre ventas y luego las ciudades agrupadas. El conjunto de ciudades está acotado a cuatro, así que el término final es constante; el total crece como `3n + 2d`, donde `d ≤ 4`. |
+| `primeraVentaInstrumentada` | O(1) | No recorre el arreglo; solo comprueba su longitud y accede a `ventas[0]`. La cuenta se mantiene en 2. |
+
+No aparece O(n²): ninguna función tiene un ciclo anidado que recorra todas las ventas por cada venta. La medición cuenta operaciones algorítmicas, no tiempo de reloj; por eso permite comparar el crecimiento sin depender del equipo.
