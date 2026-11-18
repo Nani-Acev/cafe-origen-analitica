@@ -44,6 +44,9 @@ Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas 
 | `comboRegalo` | Busca el complemento del precio con Map | O(c) esperado | O(c) | Un recorrido y búsquedas promedio constantes de complemento | Catálogo de 8 productos: 0,001 ms |
 | `productoEstrellaPorCiudad` | Cuenta y selecciona el producto más vendido por ciudad | O(n + g) esperado = O(n) | O(g), peor O(n) | Un recorrido crea Maps anidados; un recorrido por los grupos selecciona máximos | 10.000 ventas: 8,497 ms |
 | `primerClienteUnico` | Devuelve el primer cliente con una compra | O(n + u) esperado = O(n) | O(u) | Primer recorrido cuenta en Map; segundo respeta el orden de ventas | 10.000 ventas: 0,558 ms |
+| `mejorSemanaBruta` | Encuentra la ventana de k días con mayor suma | O((n-k+1)k), peor O(nk) | O(1) | Vuelve a sumar k días para cada inicio | 100.000 días, k=7: 1,804 ms |
+| `mejorSemana` | Encuentra la ventana de k días con mayor suma | O(n) | O(1) | Suma una vez la ventana inicial y actualiza con el elemento entrante y saliente | 100.000 días, k=7: 0,850 ms |
+| `parMasCercano` | Busca el par bajo presupuesto cuya suma es máxima | O(n log n) | O(n) | Ordena una copia y después la recorre con dos punteros en O(n) | Catálogo de 8 productos; validado con 3 presupuestos |
 
 `s` es el largo del texto de entrada. Para una venta cuyo tamaño de campo no crece con el historial, esos helpers son O(1) respecto a n. En `topProductosPorValor`, `p` puede llegar a n; con el catálogo actual p es pequeño y acotado.
 
@@ -118,3 +121,4 @@ La prioridad era `clientesRecurrentes`: comparaba cada venta contra las posterio
 - `node src/recurrentes.js`: compara original, Set y Map en 1.000, 10.000 y 100.000 ventas; omite la original a 100.000 por su tiempo previo de 58,6 s.
 - `node src/reporte.js`: reporte integrado y comprobaciones contra `NaN`, `undefined` y ciudades duplicadas.
 - `node src/verificar.js`: equivalencia de ciclos y métodos y conservación del arreglo original.
+- `node src/ventanas.js`: compara semana bruta y deslizante con septiembre y 100.000 días; prueba pares por presupuesto.

@@ -43,6 +43,7 @@ Otros scripts:
 | `node src/reproducir-errores.js` | Reproduce los dos errores reportados por la gerente y prueba que están corregidos (MiniReto 4). |
 | `node src/recurrentes.js` | Compara clientes recurrentes con fuerza bruta, Set y Map; verifica la salida y mide tamaños de 1.000, 10.000 y 100.000 ventas. |
 | `node src/medir-rendimiento.js` | Mide las funciones del motor con una muestra de 10.000 ventas. |
+| `node src/ventanas.js` | Compara la búsqueda de mejor semana por fuerza bruta y ventana deslizante; prueba pares de productos por presupuesto. |
 
 ## Estructura
 
@@ -51,7 +52,9 @@ cafe-origen-analitica/
 ├── src/
 │   ├── datos.js                Muestra de 12 ventas, tal como se exportó
 │   ├── catalogo.js             Productos y precios para combos de regalo
+│   ├── generador.js            Generadores de ventas y totales diarios
 │   ├── analitica.js            Funciones puras de cálculo
+│   ├── ventanas.js              Verificación y medición de ventanas y pares
 │   ├── explorar.js             Exploración de los datos
 │   ├── pruebas.js              Pruebas de las funciones con ciclos
 │   ├── verificar.js            Comparación ciclo vs. método

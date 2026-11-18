@@ -36,4 +36,16 @@ function generarVentas(n) {
   return ventas;
 }
 
-module.exports = { generarVentas };
+function generarVentasDiarias(n) {
+  if (!Number.isInteger(n) || n < 0) {
+    throw new RangeError('La cantidad de días debe ser un entero mayor o igual a 0.');
+  }
+
+  const dias = [];
+  for (let indice = 0; indice < n; indice++) {
+    dias.push(enteroAleatorio(200, 800));
+  }
+  return dias;
+}
+
+module.exports = { generarVentas, generarVentasDiarias };

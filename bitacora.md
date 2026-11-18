@@ -614,3 +614,70 @@ Las funciones están en `src/analitica.js`: `comboRegaloBruta`, `comboRegalo`, `
 ### Pruebas realizadas
 
 Se compararon `comboRegaloBruta` y `comboRegalo` para valores 87.000, 61.000 y 100.000; ambas versiones encontraron parejas equivalentes para los dos primeros y devolvieron `null` para el tercero. También se comprobó que el producto estrella coincide con las cuatro filas de la tabla y que el primer cliente único es C04. Los casos sin datos devuelven `null` o arreglos vacíos sin error.
+
+---
+
+## MiniReto 11 · Ventana deslizante y dos punteros
+
+### 1. Mejor semana: fuerza bruta y ventana deslizante
+
+`mejorSemanaBruta(dias, k)` suma desde cero cada bloque posible de k días. Con n días realiza hasta `(n - k + 1) × k` sumas: O(nk), que es O(n²) si k crece junto con n. Usa O(1) memoria adicional.
+
+`mejorSemana(dias, k)` suma primero los k días iniciales. Al avanzar, resta el día que sale y suma el nuevo día. Solo hay un cálculo inicial y una actualización por posición: O(n) tiempo y O(1) espacio. Si `k` no es entero positivo o supera el número de días, ambas funciones devuelven `null`; en empates se conserva la semana más temprana.
+
+Las tres primeras ventanas de septiembre (k = 7), en miles de pesos:
+
+```text
+Días 1–7:  320 + 410 + 280 + 390 + 510 + 620 + 700 = 3.230
+Días 2–8:  3.230 - 320 + 300 = 3.210
+Días 3–9:  3.210 - 410 + 290 = 3.090
+```
+
+La mejor semana es **del día 24 al 30**, con **3.670 miles de pesos** ($3.670.000). La versión bruta y la de ventana devolvieron el mismo inicio, fin y total.
+
+### 2. Comprobación y tiempos
+
+Se compararon ambas funciones con los 30 valores de septiembre y con 100.000 valores diarios generados aleatoriamente (k = 7); `assert.deepEqual` confirmó resultados idénticos en ambos conjuntos. Una medición local con Node.js dio:
+
+| Conjunto | Fuerza bruta | Ventana deslizante |
+|---|---:|---:|
+| Septiembre, 30 días | mismo resultado | mismo resultado |
+| 100.000 días aleatorios | 1,804 ms | 0,850 ms |
+
+Los milisegundos dependen del equipo y de la ejecución. Como k se mantiene fijo en esta prueba, ambas hacen trabajo O(n); la fuerza bruta vuelve a sumar k días en cada posición, mientras la ventana mantiene una suma acumulada.
+
+### 3. Par más cercano al presupuesto
+
+`parMasCercano(precios, presupuesto)` copia y ordena por precio ascendente con comparador numérico, luego usa dos punteros. Devuelve `{ productos, total }` con la suma máxima que no supera el presupuesto, o `null` si no hay dos productos elegibles. No modifica el catálogo original.
+
+Resultados probados:
+
+| Presupuesto | Productos | Total |
+|---:|---|---:|
+| 100.000 | Filtros de papel x100 + Origen Huila 1 kg | 97.000 |
+| 140.000 | Origen Sierra 500 g + Prensa francesa | 140.000 |
+| 40.000 | Sin combinación | `null` |
+
+Traza para 100.000. Precios ordenados: 18.000, 26.000, 35.000, 42.000, 45.000, 79.000, 95.000, 120.000. `I` señala el menor y `D` el mayor precio restante:
+
+| I | D | Suma | Decisión |
+|---:|---:|---:|---|
+| 18.000 | 120.000 | 138.000 | Supera el presupuesto; mover D a 95.000 |
+| 18.000 | 95.000 | 113.000 | Supera; mover D a 79.000 |
+| 18.000 | 79.000 | 97.000 | Cabe; guardar como mejor y mover I a 26.000 |
+| 26.000 | 79.000 | 105.000 | Supera; mover D a 45.000 |
+| 26.000 | 45.000 | 71.000 | Cabe; no mejora 97.000; mover I |
+| 35.000 | 45.000 | 80.000 | Cabe; no mejora; mover I |
+| 42.000 | 45.000 | 87.000 | Cabe; no mejora; mover I; termina |
+
+Cuando la suma supera el presupuesto, se mueve el puntero derecho porque hay que reducir el precio. Cuando cabe, se mueve el izquierdo para intentar mejorar la suma con un precio mayor; el mejor total se actualiza solo si aumenta.
+
+### 4. Complejidad y verificación
+
+| Función | Tiempo | Espacio adicional | Justificación |
+|---|---|---|---|
+| `mejorSemanaBruta(dias, k)` | O((n-k+1)k), peor O(nk) | O(1) | Vuelve a sumar k elementos por cada ventana. |
+| `mejorSemana(dias, k)` | O(n) | O(1) | Suma una ventana inicial y actualiza cada posición en tiempo constante. |
+| `parMasCercano(precios, presupuesto)` | O(n log n) | O(n) | Ordena una copia en O(n log n); el recorrido con dos punteros cuesta O(n), y la copia ordenada usa O(n) espacio. |
+
+La comprobación reproducible está en `node src/ventanas.js`: muestra el máximo de septiembre, compara tiempos y salidas para 100.000 días, valida los tres presupuestos y revisa ventanas inválidas y arreglos vacíos. Todas las aserciones pasaron.

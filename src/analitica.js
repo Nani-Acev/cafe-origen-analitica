@@ -391,6 +391,69 @@ function primerClienteUnico(ventas) {
   return null;
 }
 
+function mejorSemanaBruta(dias, k) {
+  if (!Array.isArray(dias) || !Number.isInteger(k) || k <= 0 || k > dias.length) {
+    return null;
+  }
+
+  let mejor = null;
+  for (let inicio = 0; inicio <= dias.length - k; inicio++) {
+    let total = 0;
+    for (let desplazamiento = 0; desplazamiento < k; desplazamiento++) {
+      total += dias[inicio + desplazamiento];
+    }
+    if (mejor === null || total > mejor.total) {
+      mejor = { total, diaInicio: inicio + 1, diaFin: inicio + k };
+    }
+  }
+  return mejor;
+}
+
+function mejorSemana(dias, k) {
+  if (!Array.isArray(dias) || !Number.isInteger(k) || k <= 0 || k > dias.length) {
+    return null;
+  }
+
+  let total = 0;
+  for (let indice = 0; indice < k; indice++) total += dias[indice];
+
+  let mejor = { total, diaInicio: 1, diaFin: k };
+  for (let inicio = 1; inicio <= dias.length - k; inicio++) {
+    total += dias[inicio + k - 1] - dias[inicio - 1];
+    if (total > mejor.total) {
+      mejor = { total, diaInicio: inicio + 1, diaFin: inicio + k };
+    }
+  }
+  return mejor;
+}
+
+function parMasCercano(precios, presupuesto) {
+  if (!Array.isArray(precios) || precios.length < 2 || !Number.isFinite(presupuesto)) {
+    return null;
+  }
+
+  const ordenados = [...precios].sort((a, b) => a.precio - b.precio);
+  let izquierda = 0;
+  let derecha = ordenados.length - 1;
+  let mejor = null;
+
+  while (izquierda < derecha) {
+    const total = ordenados[izquierda].precio + ordenados[derecha].precio;
+    if (total <= presupuesto) {
+      if (mejor === null || total > mejor.total) {
+        mejor = {
+          productos: [ordenados[izquierda], ordenados[derecha]],
+          total,
+        };
+      }
+      izquierda++;
+    } else {
+      derecha--;
+    }
+  }
+  return mejor;
+}
+
 module.exports = {
   limpiarTexto,
   claveTexto,
@@ -425,6 +488,9 @@ module.exports = {
   comboRegalo,
   productoEstrellaPorCiudad,
   primerClienteUnico,
+  mejorSemanaBruta,
+  mejorSemana,
+  parMasCercano,
 };
 
 
