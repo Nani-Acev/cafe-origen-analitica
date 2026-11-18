@@ -1,10 +1,10 @@
-# Rendimiento del motor Café Origen · v0.2
+# Rendimiento del motor Café Origen · v1.0
 
 ## Alcance y método
 
 Este informe clasifica las funciones de `src/analitica.js` y las operaciones principales de generación, instrumentación y reporte. `n` representa el número de ventas; `c`, productos del catálogo; `d`, ciudades distintas; `p`, productos distintos; `g`, pares ciudad-producto distintos; `u`, clientes únicos; `r`, clientes recurrentes; `k`, el límite del ranking; y `q`, fechas solicitadas. Se excluye el arreglo de entrada al calcular espacio y se incluye cualquier arreglo u objeto auxiliar o devuelto.
 
-Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas de `generarVentas`. Para las funciones analíticas se calentó una vez y se promediaron tres ejecuciones con `performance.now()`. Los helpers escalares se llamaron 10.000 veces. Los tiempos y contadores se pueden reproducir con `node src/medir-rendimiento.js`; cada ejecución genera nuevos datos aleatorios, así que los tiempos pueden variar. Los valores de este informe son evidencia de una ejecución, no garantías para otro equipo ni para otra distribución aleatoria.
+Las mediciones analíticas heredadas se tomaron en Node.js con una muestra aleatoria de 10.000 ventas de `generarVentas`. Para las funciones analíticas se calentó una vez y se promediaron tres ejecuciones con `performance.now()`. Los helpers escalares se llamaron 10.000 veces. Las comparaciones completas de reporte se midieron después con `node src/medir-versiones.js`: mismo arreglo aleatorio para las dos versiones, una ejecución de calentamiento y mediana de cinco mediciones de generación y validación del texto; no incluye escritura a stdout. Los tiempos y contadores varían entre equipos y muestras; son evidencia de ejecuciones concretas, no garantías de latencia.
 
 ## Funciones analíticas
 
@@ -62,16 +62,33 @@ Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas 
 | `totalPorCiudadInstrumentado` | Agrupa ciudades y cuenta el trabajo | O(n + d) | O(d) | Un ciclo más el diccionario de d ciudades | 30.008 operaciones; 4,311 ms |
 | `primeraVentaInstrumentada` | Accede al primer registro y cuenta el acceso | O(1) | O(1) | Comprueba longitud y accede al índice cero | 2 operaciones; <0,001 ms |
 
-## Ensamblado del reporte
+## Ensamblado del reporte v1.0
 
 El reporte es una ruta de ejecución que llama a las funciones analíticas, no otra fórmula de negocio. Para que su costo también tenga evidencia, se midieron sus dos puntos de entrada:
 
 | Función | Tiempo | Espacio | Justificación y medición con 10.000 ventas |
 |---|---|---|---|
-| `generarReporte` | O(n log n + qn + p log p); con q fijo, O(n log n) | O(n + p + d + q) | Ordena las fechas del resumen, agrupa ciudades/productos y filtra una pasada por cada fecha. Con las dos fechas predeterminadas promedió 26,324 ms. |
-| `revisarReporte` | O(n + d) = O(n) | O(d) | Vuelve a agrupar ciudades, crea claves y un `Set`; promedió 10,826 ms. |
+| `generarReporte` | O(n + d log d + qn + p log p), esperado | O(n + g + p + u + L) = O(n + L) | Agrupa fechas/ciudades/productos y ordena las tablas pequeñas; hace q recorridos por fechas consultadas. Mantiene conteos Map y el texto L. |
+| `revisarReporte` | O(n + L) | O(d) | Busca marcadores en el texto de largo L y reagrupa ciudades para validar que no se dupliquen. |
+| `sumarPorFecha` (reporte) | O(n + d log d) | O(d) | Un Map acumula n ventas por fecha; ordenar las d fechas cuesta d log d y se rellena el calendario diario. |
+| Sección clientes recurrentes | O(n + u) esperado | O(u) | Un Map cuenta clientes; un recorrido conserva los diez mayores en una lista de tamaño constante. |
+| Sección producto estrella por ciudad | O(n + g) esperado | O(g) | Map anidado cuenta apariciones de cada par ciudad-producto y elige máximos. |
+| Sección combo de regalo | O(c) esperado | O(c) | Busca el complemento con Map sobre el catálogo. |
+| Sección cliente de cupón | O(n) esperado | O(u) | Map de frecuencias y segundo recorrido en orden para el primer singleton. |
+| Sección mejor semana | O(d) después de agrupar fechas | O(d) | La ventana deslizante actualiza la suma en O(1) por día; rellena huecos con cero. |
 
-Los formateadores (`pesos`, `numero`, `porcentaje`, `titulo`, `dato`, `describirVenta`) son O(1) respecto a n por llamada. `tabla` ocupa O(f) para f filas. `seccionResumen` ocupa O(n) memoria temporal por la lista de fechas; `seccionCiudades` O(d), `seccionProductos` y `seccionTop` O(p), y `seccionDias` O(n + q) de memoria pico. En tiempo, las secciones de ciudades y productos también incluyen el ordenamiento de sus grupos; `seccionDias` hace O(qn) trabajo si se consultan q fechas.
+Los formateadores (`pesos`, `numero`, `porcentaje`, `titulo`, `dato`, `describirVenta`) son O(1) respecto a n por llamada. `tabla` ocupa O(f) para f filas. `seccionResumen` ocupa O(n) memoria temporal por la lista de fechas; las otras tablas guardan sus filas O(d), O(p), O(u) o O(g). `seccionDias` hace O(qn) trabajo si se consultan q fechas; q=2 por defecto. Ninguna función que se ejecuta en el reporte final usa ciclos anidados de crecimiento n×n; los diccionarios Map/Set tienen costo promedio constante por acceso.
+
+## Comparación de versiones completas
+
+La línea base `src/reporte-v01.js` conserva el reporte v0.1 previo a los MiniRetos 9–12. El script mide para ambas versiones la construcción del texto y la validación, sobre el mismo historial aleatorio por tamaño. Son medianas de cinco ejecuciones después de calentar, excluyendo la escritura del texto a la terminal:
+
+| Ventas | Reporte v0.1 | Reporte v1.0 | Diferencia de tiempo | Observación |
+|---:|---:|---:|---:|---|
+| 10.000 | 39,42 ms | 47,80 ms | +21,3 % | v1.0 calcula y presenta las secciones nuevas además del reporte base. |
+| 100.000 | 355,00 ms | 441,82 ms | +24,5 % | Incluye recurrentes, estrella por ciudad, cliente único y semana; sigue bajo cinco segundos. |
+
+El total de v1.0 es mayor porque hace más trabajo útil que la línea base. La ejecución completa del comando `node src/reporte.js 100000`, incluyendo arranque de Node y escritura del reporte a `/dev/null`, tardó **0,54 s** en esta máquina. La evidencia de optimización está en el algoritmo de clientes recurrentes: el original de pares era O(n²) con costo adicional de `includes` (peor O(n³)); las versiones Map/Set son O(n) esperado y la versión final usa un Map de conteos. La comparación no atribuye una mejora artificial al total del reporte: mide el producto completo con su funcionalidad ampliada.
 
 ## Proyección a 1.000.000 de ventas
 
@@ -91,6 +108,7 @@ Las proyecciones lineales multiplican el tiempo de n=10.000 por 100. Para O(n lo
 | Ordenar ventas | 1,818 ms | O(n log n), ×150 | 273 ms |
 | Resumen de un día | 0,892 ms | O(n), ×100 por fecha | 89 ms por fecha |
 | Reporte completo (dos fechas) | 26,324 ms | O(n log n), ×150 | 3,95 s |
+| Reporte v1.0 completo (dos fechas) | 441,82 ms con 100.000 | O(n log n), ×12 desde 100.000 | 5,30 s |
 | Validación del reporte | 10,826 ms | O(n), ×100 | 1,08 s |
 | Generar un millón de filas sintéticas | 1,140 ms para 10.000 | O(n), ×100 | 114 ms |
 | Clientes recurrentes original (referencia) | 58,632 s para 100.000 | O(n²) observado en este generador, ×100 | 97,7 min |
@@ -122,3 +140,4 @@ La prioridad era `clientesRecurrentes`: comparaba cada venta contra las posterio
 - `node src/reporte.js`: reporte integrado y comprobaciones contra `NaN`, `undefined` y ciudades duplicadas.
 - `node src/verificar.js`: equivalencia de ciclos y métodos y conservación del arreglo original.
 - `node src/ventanas.js`: compara semana bruta y deslizante con septiembre y 100.000 días; prueba pares por presupuesto.
+- `node src/medir-versiones.js`: compara las medianas del reporte v0.1 guardado en `src/reporte-v01.js` y v1.0 con los mismos datos de 10.000 y 100.000 ventas.

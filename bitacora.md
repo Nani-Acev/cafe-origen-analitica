@@ -681,3 +681,32 @@ Cuando la suma supera el presupuesto, se mueve el puntero derecho porque hay que
 | `parMasCercano(precios, presupuesto)` | O(n log n) | O(n) | Ordena una copia en O(n log n); el recorrido con dos punteros cuesta O(n), y la copia ordenada usa O(n) espacio. |
 
 La comprobación reproducible está en `node src/ventanas.js`: muestra el máximo de septiembre, compara tiempos y salidas para 100.000 días, valida los tres presupuestos y revisa ventanas inválidas y arreglos vacíos. Todas las aserciones pasaron.
+
+---
+
+## Cierre de la semana · MiniReto 12 · Analítica v1.0
+
+### Recorrido de construcción
+
+| MiniReto | Qué quedó construido | Estrategia aplicada |
+|---:|---|---|
+| 1 | Repositorio, arreglo de ventas, exploración, diccionario y casos de calidad | Inspeccionar estructura y tipos antes de calcular; conservar los datos originales y anotar decisiones de limpieza. |
+| 2 | Indicadores básicos por ciclos: total, unidades, máximo, ticket y ciudad | Traducir cada cálculo a contador, acumulador o máximo; definir resultados vacíos y verificar con trazas. |
+| 3 | Versiones con métodos, agrupaciones y rankings | Comparar ciclo y métodos sobre las mismas entradas; normalizar claves y ordenar copias. |
+| 4 | Primer reporte v0.1, formato y depuración | Integrar módulos y reproducir fallos con entradas específicas antes de corregirlos. |
+| 5 | Generador de historiales y contadores de operaciones | Medir crecimiento para tamaños que se multiplican por diez y contrastarlo con una predicción Big O. |
+| 6 | Diagnóstico de clientes recurrentes por pares | Trazar comparaciones, medir duplicaciones y detectar `includes` como costo adicional al ciclo anidado. |
+| 7 | Comparación espacial de cadena de métodos y una pasada | Contar recorridos y arreglos temporales; separar crecimiento temporal de memoria adicional. |
+| 8 | Informe v0.2 de complejidades, proyecciones y riesgos | Basar la prioridad en el código, en mediciones repetibles y en el peor caso. |
+| 9 | Clientes recurrentes con Set y Map | Reemplazar búsquedas repetidas por pertenencia/conteos promedio constantes; aceptar memoria O(u) para lograr tiempo O(n) esperado. |
+| 10 | Combos, producto estrella por ciudad y primer cliente único | Usar Map para complementos y frecuencias; resolver el cliente singleton en dos pasadas conservando el orden. |
+| 11 | Mejor semana y par de productos por presupuesto | Mantener una suma al desplazar la ventana; ordenar una copia y descartar candidatos con dos punteros. |
+| 12 | Reporte v1.0, comparación v0.1/v1.0 y documentación final | Integrar funciones optimizadas, comparar con el mismo conjunto de datos y documentar el costo agregado de nuevas secciones sin ocultar la latencia total. |
+
+### Integración final y evidencia
+
+`node src/reporte.js` usa las 12 ventas reales. `node src/reporte.js 100000` genera una muestra y presenta todas las secciones del motor; en esta máquina tardó 0,54 s incluyendo arranque de Node y salida redirigida. El reporte forma el historial recurrente con `comprasPorCliente` (Map), usa la función de producto estrella, `comboRegalo`, `primerClienteUnico` y `mejorSemana`. La sección de clientes muestra el total y una muestra de los diez con más compras para que el informe siga siendo legible con historiales grandes.
+
+La medición de generación y validación del texto mostró que v1.0 tarda más que v0.1: 47,80 ms frente a 39,42 ms con 10.000 registros, y 441,82 ms frente a 355,00 ms con 100.000. v1.0 calcula y presenta más indicadores; ambos tiempos quedan por debajo de cinco segundos con 100.000 ventas. La mejora de algoritmos se evidencia en las funciones que antes repetían búsquedas: clientes recurrentes pasó de O(n²) más `includes` (peor caso O(n³)) a O(n) esperado con Map/Set; la ventana semanal evita sumar k días desde cero en cada posición; las búsquedas de pares reducen candidaturas con dos punteros después de ordenar.
+
+La reproducción de las comparaciones está disponible con `node src/medir-versiones.js`. `RENDIMIENTO.md` conserva los datos por ejecución, el método de comparación, complejidades y límites de las proyecciones. No se hizo commit ni push como se pidió; para verificar el estado actual desde cero se usará una copia limpia de los archivos del proyecto, porque un clon de Git no contiene cambios locales sin commit.

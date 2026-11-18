@@ -1,79 +1,98 @@
-# Café Origen · Analítica v0.1
+# Café Origen · Motor de analítica v1.0
 
-Motor de analítica de ventas para **Café Origen**, una tienda de café de origen colombiano. Lee el historial de ventas y genera, por consola, un reporte de negocio que la gerente puede ejecutar sin abrir el código.
-
-Está escrito en JavaScript (Node.js) con CommonJS y no tiene dependencias externas.
-
-## Qué preguntas responde
-
-- ¿Cuánto se vendió en total y cuántas unidades salieron?
-- ¿Cuál fue la venta más grande?
-- ¿Cuánto gasta en promedio un cliente por compra (ticket promedio)?
-- ¿Cuánto se vendió en cada ciudad y qué porcentaje representa?
-- ¿Cuántas unidades se vendieron de cada producto?
-- ¿Cuáles son los 3 productos que más dinero generaron?
-- ¿Cómo le fue a un día específico, incluso si ese día no hubo ventas?
-- ¿Qué dos productos del catálogo suman el valor de una tarjeta regalo?
-- ¿Cuál es el producto estrella de cada ciudad y quién es el primer cliente que compró una sola vez?
+Motor de consola para explorar ventas de Café Origen y producir un resumen comercial. Incluye indicadores, agrupaciones, rankings, análisis de clientes y una comparación de opciones de regalo. Está implementado en JavaScript con Node.js y módulos CommonJS; no requiere dependencias externas.
 
 ## Requisitos
 
-- Node.js versión LTS (probado con Node 22). No hace falta `npm install`.
+- Node.js LTS instalado (Node 22 o posterior).
+- Git solo si se desea clonar el repositorio.
+- No hace falta ejecutar `npm install`.
 
-## Cómo ejecutarlo
+## Inicio rápido
 
-Desde la carpeta del proyecto:
+Clona el repositorio e ingresa a su carpeta:
 
 ```bash
-# Reporte completo (incluye un día con ventas y uno sin ventas como ejemplo)
+git clone https://github.com/Nani-Acev/cafe-origen-analitica.git
+cd cafe-origen-analitica
+```
+
+Ejecuta el reporte con las 12 ventas de ejemplo:
+
+```bash
 node src/reporte.js
+```
 
-# Reporte con el resumen de uno o varios días (formato AAAA-MM-DD)
+Para generar un historial sintético y analizar, por ejemplo, 100.000 ventas:
+
+```bash
+node src/reporte.js 100000
+```
+
+También puedes pedir el resumen de fechas concretas con los datos de ejemplo o con un conjunto generado:
+
+```bash
 node src/reporte.js 2026-09-05
-node src/reporte.js 2026-09-01 2026-09-02
+node src/reporte.js 100000 2026-09-05 2026-09-07
 ```
 
-Otros scripts:
+El comando muestra resumen general, ventas por ciudad, unidades por producto, top 3 por valor, resumen diario, clientes recurrentes, producto estrella por ciudad, combo de regalo, cliente para cupón y mejor semana disponible. Si el historial tiene menos de siete días, la sección semanal lo indica.
 
-| Comando | Para qué sirve |
-|---|---|
-| `node src/explorar.js` | Exploración inicial de los datos (MiniReto 1). |
-| `node src/pruebas.js` | Prueba las funciones con ciclos con tres entradas: completo, un elemento y vacío (MiniReto 2). |
-| `node src/verificar.js` | Demuestra que cada versión con métodos da el mismo resultado que su ciclo: "OK" o "DIFERENTE" (MiniReto 3). |
-| `node src/reproducir-errores.js` | Reproduce los dos errores reportados por la gerente y prueba que están corregidos (MiniReto 4). |
-| `node src/recurrentes.js` | Compara clientes recurrentes con fuerza bruta, Set y Map; verifica la salida y mide tamaños de 1.000, 10.000 y 100.000 ventas. |
-| `node src/medir-rendimiento.js` | Mide las funciones del motor con una muestra de 10.000 ventas. |
-| `node src/ventanas.js` | Compara la búsqueda de mejor semana por fuerza bruta y ventana deslizante; prueba pares de productos por presupuesto. |
+## Preguntas que responde
 
-## Estructura
+- ¿Cuánto se vendió, cuántas unidades salieron y cuál fue la compra más grande?
+- ¿Cuál es el ticket promedio de las ventas válidas?
+- ¿Qué ciudades y productos generaron más ventas o unidades?
+- ¿Qué productos forman un combo que suma exactamente $87.000?
+- ¿Qué clientes compraron más de una vez y cuál es el primer cliente con una sola compra?
+- ¿Cuál es el producto más frecuente de cada ciudad?
+- ¿Cuál fue la mejor ventana de siete días consecutivos?
+- ¿Qué par de productos queda más cerca de un presupuesto sin superarlo? La función está disponible para consultar desde el módulo analítico.
 
-```
-cafe-origen-analitica/
-├── src/
-│   ├── datos.js                Muestra de 12 ventas, tal como se exportó
-│   ├── catalogo.js             Productos y precios para combos de regalo
-│   ├── generador.js            Generadores de ventas y totales diarios
-│   ├── analitica.js            Funciones puras de cálculo
-│   ├── ventanas.js              Verificación y medición de ventanas y pares
-│   ├── explorar.js             Exploración de los datos
-│   ├── pruebas.js              Pruebas de las funciones con ciclos
-│   ├── verificar.js            Comparación ciclo vs. método
-│   ├── reporte.js              Reporte de negocio por consola
-│   └── reproducir-errores.js   Reproducción y corrección de errores
-├── bitacora.md                 Análisis, decisiones, trazas y depuración
-└── README.md
+## Comprobaciones y mediciones
+
+```bash
+node src/explorar.js
+node src/pruebas.js
+node src/verificar.js
+node src/ventanas.js
+node src/recurrentes.js
+node src/medir.js
+node src/medir-rendimiento.js
+node src/medir-versiones.js
 ```
 
-## Decisiones importantes sobre los datos
+`medir-versiones.js` compara el reporte de referencia v0.1 con v1.0 a 10.000 y 100.000 ventas, usando el mismo conjunto aleatorio por tamaño. `ventanas.js` también verifica la coincidencia de fuerza bruta y ventana deslizante con 100.000 días. Los tiempos son mediciones de una máquina y pueden variar.
 
-- Los datos de `datos.js` no se modifican; la limpieza se hace al calcular.
-- El valor de una venta es `cantidad × precio` (el precio es unitario).
-- Las ciudades se comparan sin importar mayúsculas, tildes ni espacios sobrantes, y se muestran con la primera letra en mayúscula (por ejemplo, "medellín" se suma a "Medellín").
-- Una venta con cantidad 0 suma 0, pero no cuenta como venta válida para el ticket promedio ni para la venta más grande.
-- Un día sin ventas muestra valores en cero y un mensaje claro, nunca `NaN`.
+## Estructura del proyecto
 
-El detalle de cada decisión está en [`bitacora.md`](bitacora.md).
+```text
+src/
+├── datos.js                 Muestra original de 12 ventas
+├── catalogo.js              Catálogo y precios
+├── generador.js             Generadores de ventas y totales diarios
+├── analitica.js             Funciones de cálculo y optimización
+├── reporte.js               Reporte final v1.0 para consola
+├── reporte-v01.js            Línea base del reporte para comparación
+├── explorar.js              Exploración inicial de los datos
+├── pruebas.js               Pruebas de indicadores básicos
+├── verificar.js             Comparación de ciclos y métodos
+├── ventanas.js              Pruebas de ventanas y dos punteros
+├── recurrentes.js           Comparación de clientes recurrentes
+├── medir.js                 Conteo de operaciones
+├── medir-rendimiento.js     Mediciones analíticas del motor
+└── medir-versiones.js       Comparación del reporte v0.1 y v1.0
 
-## Versiones
+bitacora.md                  Diccionario, decisiones, trazas y cierre
+RENDIMIENTO.md               Complejidades, mediciones y proyecciones
+```
 
-- **v0.1**: primer reporte de negocio; corrige la ciudad duplicada y el ticket promedio `NaN`.
+## Decisiones sobre los datos
+
+- `datos.js` conserva la muestra tal como se exportó; las funciones normalizan textos al comparar.
+- El valor de una línea es `cantidad × precio`; una línea con cantidad cero aporta cero y no entra al ticket promedio.
+- Los clientes recurrentes se cuentan con `Map`, y la versión cuadrática queda como referencia de aprendizaje, no se usa en el reporte final.
+- La semana se calcula sobre fechas consecutivas; los días sin ventas se completan con total cero.
+- Las funciones de ordenamiento trabajan sobre copias y conservan los arreglos fuente.
+
+El análisis completo, las trazas y las decisiones están en [`bitacora.md`](bitacora.md). La clasificación de tiempo y memoria y las mediciones están en [`RENDIMIENTO.md`](RENDIMIENTO.md).

@@ -1,4 +1,6 @@
-const { ventas } = require('./datos');
+const { ventas: ventasReales } = require('./datos');
+const { generarVentas } = require('./generador');
+const { catalogo } = require('./catalogo');
 const {
   claveTexto,
   valorVenta,
@@ -11,6 +13,11 @@ const {
   unidadesPorProducto,
   topProductosPorValor,
   ventasDelDia,
+  comprasPorCliente,
+  productoEstrellaPorCiudad,
+  comboRegalo,
+  primerClienteUnico,
+  mejorSemana,
 } = require('./analitica');
 
 const ANCHO = 64;
@@ -64,8 +71,14 @@ function describirVenta(venta) {
 }
 
 function seccionResumen(datos) {
-  const fechas = datos.map((venta) => venta.fecha).sort();
-  const periodo = fechas.length === 0 ? 'Sin datos' : `${fechas[0]} a ${fechas[fechas.length - 1]}`;
+  let primeraFecha = null;
+  let ultimaFecha = null;
+  for (const venta of datos) {
+    if (!venta || !venta.fecha) continue;
+    if (primeraFecha === null || venta.fecha < primeraFecha) primeraFecha = venta.fecha;
+    if (ultimaFecha === null || venta.fecha > ultimaFecha) ultimaFecha = venta.fecha;
+  }
+  const periodo = primeraFecha === null ? 'Sin datos' : `${primeraFecha} a ${ultimaFecha}`;
   const validas = contarVentasValidas(datos);
 
   return [
@@ -174,10 +187,111 @@ function seccionDias(datos, fechas) {
   return lineas;
 }
 
+function seccionClientesRecurrentes(datos) {
+  const conteos = comprasPorCliente(datos);
+  const principales = [];
+  let totalRecurrentes = 0;
+  for (const [cliente, cantidad] of conteos) {
+    if (cantidad <= 1) continue;
+    totalRecurrentes++;
+    const candidato = { cliente, cantidad };
+    const posicion = principales.findIndex((actual) =>
+      candidato.cantidad > actual.cantidad ||
+      (candidato.cantidad === actual.cantidad && candidato.cliente.localeCompare(actual.cliente) < 0)
+    );
+    if (posicion >= 0 && posicion < 10) principales.splice(posicion, 0, candidato);
+    else if (principales.length < 10) principales.push(candidato);
+    if (principales.length > 10) principales.pop();
+  }
+  const filas = principales.map(({ cliente, cantidad }) => ({ cliente, compras: numero(cantidad) }));
+  return [
+    ...titulo('6. CLIENTES RECURRENTES'),
+    `  Clientes recurrentes: ${numero(totalRecurrentes)}${totalRecurrentes > 10 ? ' (muestra de los 10 con más compras)' : ''}`,
+    ...(filas.length
+      ? tabla(
+          [{ titulo: 'Cliente', clave: 'cliente' }, { titulo: 'Compras', clave: 'compras', derecha: true }],
+          filas.slice(0, 10)
+        )
+      : ['  No hay clientes con más de una compra.']),
+  ];
+}
+
+function seccionEstrellaPorCiudad(datos) {
+  const estrellas = productoEstrellaPorCiudad(datos);
+  return [
+    ...titulo('7. PRODUCTO ESTRELLA POR CIUDAD'),
+    ...(estrellas.length
+      ? tabla([
+          { titulo: 'Ciudad', clave: 'ciudad' },
+          { titulo: 'Producto', clave: 'producto' },
+          { titulo: 'Ventas', clave: 'apariciones', derecha: true },
+        ], estrellas)
+      : ['  No hay ventas registradas.']),
+  ];
+}
+
+function seccionComboRegalo() {
+  const combo = comboRegalo(catalogo, 87000);
+  const productos = combo
+    ? combo.map((item) => `${item.producto} (${pesos(item.precio)})`).join(' + ')
+    : 'No hay dos productos que sumen $87.000.';
+  return [
+    ...titulo('8. COMBO DE REGALO SUGERIDO'),
+    `  Presupuesto de tarjeta: ${pesos(87000)}`,
+    `  ${productos}`,
+    ...(combo ? [`  Total: ${pesos(combo.reduce((suma, item) => suma + item.precio, 0))}`] : []),
+  ];
+}
+
+function seccionClienteCupon(datos) {
+  const cliente = primerClienteUnico(datos);
+  return [
+    ...titulo('9. CLIENTE PARA CUPÓN DE REGRESO'),
+    `  ${cliente || 'No hay clientes con una sola compra.'}`,
+  ];
+}
+
+function sumarPorFecha(datos) {
+  const totales = new Map();
+  for (const venta of datos) {
+    if (!venta || !/^\d{4}-\d{2}-\d{2}$/.test(venta.fecha)) continue;
+    totales.set(venta.fecha, (totales.get(venta.fecha) || 0) + valorVenta(venta));
+  }
+  const fechas = [...totales.keys()].sort();
+  if (fechas.length === 0) return [];
+
+  const fecha = new Date(`${fechas[0]}T00:00:00Z`);
+  const ultima = fechas[fechas.length - 1];
+  const dias = [];
+  const fechasContinuas = [];
+  while (fecha.toISOString().slice(0, 10) <= ultima) {
+    const texto = fecha.toISOString().slice(0, 10);
+    fechasContinuas.push(texto);
+    dias.push(totales.get(texto) || 0);
+    fecha.setUTCDate(fecha.getUTCDate() + 1);
+  }
+  return { dias, fechas: fechasContinuas };
+}
+
+function seccionMejorSemana(datos) {
+  const serie = sumarPorFecha(datos);
+  const semana = serie.dias ? mejorSemana(serie.dias, 7) : null;
+  if (!semana) {
+    return [...titulo('10. MEJOR SEMANA'), '  Se requieren al menos siete días consecutivos de historial.'];
+  }
+  const inicio = serie.fechas[semana.diaInicio - 1];
+  const fin = serie.fechas[semana.diaFin - 1];
+  return [
+    ...titulo('10. MEJOR SEMANA'),
+    dato('Periodo', `${inicio} a ${fin}`),
+    dato('Total vendido', pesos(semana.total)),
+  ];
+}
+
 function generarReporte(datos, fechas = FECHAS_POR_DEFECTO) {
   const lineas = [
     '═'.repeat(ANCHO),
-    '  CAFÉ ORIGEN · Reporte de ventas · v0.1',
+    '  CAFÉ ORIGEN · Reporte de ventas · v1.0',
     `  Generado: ${new Date().toLocaleDateString('es-CO')}`,
     '═'.repeat(ANCHO),
     ...seccionResumen(datos),
@@ -185,6 +299,11 @@ function generarReporte(datos, fechas = FECHAS_POR_DEFECTO) {
     ...seccionProductos(datos),
     ...seccionTop(datos),
     ...seccionDias(datos, fechas),
+    ...seccionClientesRecurrentes(datos),
+    ...seccionEstrellaPorCiudad(datos),
+    ...seccionComboRegalo(),
+    ...seccionClienteCupon(datos),
+    ...seccionMejorSemana(datos),
     '',
     '═'.repeat(ANCHO),
   ];
@@ -203,12 +322,23 @@ function revisarReporte(texto, datos) {
 
 if (require.main === module) {
   const argumentos = process.argv.slice(2);
-  const fechas = argumentos.length > 0 ? argumentos : FECHAS_POR_DEFECTO;
+  let datos = ventasReales;
+  let fechas = FECHAS_POR_DEFECTO;
+  if (argumentos[0] && /^\d+$/.test(argumentos[0])) {
+    const cantidad = Number(argumentos.shift());
+    if (!Number.isSafeInteger(cantidad)) {
+      console.error('La cantidad debe ser un entero seguro.');
+      process.exitCode = 1;
+      return;
+    }
+    datos = generarVentas(cantidad);
+  }
+  if (argumentos.length > 0) fechas = argumentos;
 
-  const reporte = generarReporte(ventas, fechas);
+  const reporte = generarReporte(datos, fechas);
   console.log(reporte);
 
-  const problemas = revisarReporte(reporte, ventas);
+  const problemas = revisarReporte(reporte, datos);
   if (problemas.length === 0) {
     console.log('  Verificación: sin NaN, sin undefined y sin ciudades duplicadas.\n');
   } else {
