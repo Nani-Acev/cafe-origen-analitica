@@ -414,3 +414,76 @@ Con la distribución del generador (hasta `n/3` clientes), las mediciones se com
 ### Conclusión para la gerente
 
 El reporte tarda porque compara cada compra con muchas otras para descubrir quién volvió a comprar. Cuando el historial crece diez veces, esa revisión puede tardar cerca de cien veces más; además, buscar si el cliente ya está en la lista de recurrentes añade trabajo. Con un millón de ventas, la estimación ronda una hora y 38 minutos en este equipo. Conviene reemplazar esta búsqueda repetida por un conteo agrupado de clientes antes de usar el reporte con todo el año.
+
+---
+
+## MiniReto 7 · Complejidad espacial por ciudad
+
+### Dos formas de sumar una ciudad
+
+Se agregaron `totalCiudadCadena(ventas, ciudad)` y `totalCiudadUnaPasada(ventas, ciudad)` a `src/analitica.js`. Ambas normalizan con `claveTexto` y suman `cantidad × precio` para la ciudad consultada.
+
+Con `generarVentas(10000)`, las dos versiones devolvieron exactamente el mismo valor para Medellín, Bogotá y una ciudad sin ventas. En esa ejecución Bogotá sumó **480.538.000**; el generador es aleatorio, así que el monto puede cambiar en otra ejecución.
+
+| Versión | Recorridos completos | Arreglos intermedios creados | Tiempo | Espacio adicional |
+|---|---:|---:|---|---|
+| `totalCiudadCadena` | 4: `map`, `filter`, `map`, `reduce` | 3: el primer `map`, `filter` y segundo `map` | O(4n) = O(n) | O(n) |
+| `totalCiudadUnaPasada` | 1: `for...of` | 0 | O(n) | O(1) |
+
+El primer `map` también crea un objeto temporal por venta con la ciudad normalizada y la venta. `filter` recorre los n elementos y deja m coincidencias; el segundo `map` y `reduce` recorren esas m, donde `m ≤ n`. El trabajo es `n + n + m + m`, acotado por `4n`. En Big O se eliminan las constantes multiplicativas: O(4n) se simplifica a O(n). El ciclo único también es O(n), pero guarda solo la ciudad buscada y el total acumulado; no materializa colecciones intermedias.
+
+**Decisión para el motor:** se mantiene `totalCiudadUnaPasada` como la versión recomendada para producción, porque el servidor tiene memoria limitada y solo necesita un total. `totalCiudadCadena` queda disponible como comparación didáctica: expresa bien la transformación de la colección, pero usa O(n) memoria temporal. Para construir todos los grupos de ciudad sigue siendo apropiado `totalPorCiudad`, que necesita almacenar sus resultados.
+
+### Convenciones para clasificar memoria
+
+En la tabla siguiente, `n` es el número de ventas; `d` es la cantidad de ciudades distintas; `p`, productos distintos; `r`, clientes recurrentes; `k`, el límite del top; y `q`, fechas consultadas. Se excluye el arreglo de entrada, pero se cuentan los resultados y arreglos auxiliares creados por la función. En funciones de texto, `s` es el largo del texto; como cada campo tiene un tamaño acotado frente a `n`, su espacio es O(1) respecto al historial.
+
+### Funciones de `analitica.js`
+
+| Funciones | Espacio adicional | Motivo |
+|---|---|---|
+| `limpiarTexto`, `claveTexto`, `tieneTildes`, `formatearNombreLugar` | O(s), O(1) respecto a n | Trabajan con un campo de texto; `formatearNombreLugar` guarda temporalmente las palabras. |
+| `cantidadDe`, `precioDe`, `valorVenta`, `esVentaValida`, `contarVentasValidas` | O(1) | Variables escalares; el ciclo de conteo no guarda elementos. |
+| `totalVendido`, `unidadesVendidas`, `ventaMayor`, `ticketPromedio`, `ventasPorCiudad`, `totalCiudadUnaPasada` | O(1) | Acumuladores, máximo y claves escalares; no crean arreglos proporcionales a n. |
+| `totalVendidoM`, `unidadesVendidasM` | O(n) | `map` crea un arreglo con un resultado por venta y `reduce` devuelve un escalar. |
+| `ventasPorCiudadM` | O(n) | `filter` y `map` crean arreglos nuevos con hasta n elementos cada uno. |
+| `totalCiudadCadena` | O(n) | Crea tres arreglos intermedios; el primero además guarda un objeto temporal por venta. |
+| `totalPorCiudad` | O(d), O(n) en el peor caso | El diccionario de grupos, `Object.entries`, el arreglo de `map` y el objeto final crecen con las ciudades distintas. |
+| `agruparPorProducto` | O(p), O(n) en el peor caso | Devuelve un diccionario con una entrada por producto distinto. |
+| `unidadesPorProducto` | O(p), O(n) en el peor caso | Mantiene los grupos, el arreglo de `Object.entries`, el arreglo de `map` y el objeto de salida. |
+| `topProductosPorValor` | O(p), O(n) en el peor caso | Copia los grupos para ordenar, guarda las entradas y el resultado de hasta k productos; `p` puede crecer hasta n. |
+| `ventasOrdenadasPorValor` | O(n) | `[...ventas]` crea una copia completa antes de ordenar. |
+| `esFechaValida` | O(1) respecto a n | Valida una sola cadena de fecha de tamaño acotado. |
+| `ventasDelDia` | O(n) | `filter` crea el arreglo de ventas del día, que en el peor caso contiene todas las ventas. |
+| `clientesRecurrentes` | O(r), O(n) en el peor caso | El arreglo de salida guarda cada cliente recurrente una sola vez; `includes` no crea otro arreglo. |
+
+### Generador, instrumentación y reporte
+
+| Funciones | Espacio adicional | Motivo |
+|---|---|---|
+| `enteroAleatorio` | O(1) | Solo calcula un número. |
+| `generarVentas` | O(n) | El arreglo de ventas generado es la salida solicitada. |
+| `contarOperacion`, `totalVendidoInstrumentado`, `ventaMayorInstrumentada`, `primeraVentaInstrumentada` | O(1) | Contador y acumuladores escalares. |
+| `totalPorCiudadInstrumentado` | O(d), O(n) en el peor caso | Retiene el diccionario de grupos y el objeto de salida. |
+| `pesos`, `numero`, `porcentaje`, `titulo`, `dato`, `describirVenta` | O(1) respecto a n | Crean cadenas pequeñas asociadas a un dato. |
+| `tabla` | O(f) | Copia y construye filas de texto para f filas de salida. |
+| `seccionResumen` | O(n) | Crea con `map` un arreglo de fechas para ordenarlo. |
+| `seccionCiudades` | O(d) | Mantiene agrupaciones, entradas, filas ordenadas y líneas de salida por ciudad. |
+| `seccionProductos`, `seccionTop` | O(p) | Agrupan y forman filas por producto; el top ordena una copia. |
+| `seccionDias` | O(n + q) en el peor caso | Cada consulta filtra ventas; además conserva líneas para q fechas. |
+| `generarReporte` | O(n + d + p + q) en el peor caso | Conserva las líneas del informe; el resumen crea temporalmente una lista de fechas de tamaño n. |
+| `revisarReporte` | O(d) | `map` y `Set` guardan una clave por ciudad distinta. |
+
+La clasificación cuenta espacio adicional, no tiempo. Por eso tanto la cadena como el ciclo único son O(n) en tiempo, pero difieren en espacio: O(n) frente a O(1). Para un cálculo de un solo total en un servidor con memoria limitada, el recorrido único es la opción elegida.
+
+---
+
+## MiniReto 8 · Informe de rendimiento v0.2
+
+### Revisión técnica independiente
+
+Un revisor técnico independiente encontró correctas las clases de complejidad, los conteos instrumentados y las proyecciones. Su observación fue que los tiempos de 10.000 ventas no se podían reproducir desde el repositorio: `medir.js` contaba operaciones y `recurrentes.js` medía solo clientes recurrentes.
+
+**Respuesta y cambio aplicado:** añadí `src/medir-rendimiento.js`, que crea 10.000 ventas, calienta las funciones una vez, promedia tres ejecuciones con `performance.now()` y muestra una tabla con las funciones analíticas, utilidades y reporte. También reproduce los contadores instrumentados y comprueba que las dos versiones de total por ciudad coincidan. En una segunda pasada, el revisor señaló que mediciones menores a 0,001 ms podían redondearse a cero; ajusté la salida del script para mostrarlas como `<0.001`. El informe indica que los tiempos pueden variar porque cada corrida genera otra muestra aleatoria. Para reproducirlo se ejecuta `node src/medir-rendimiento.js`.
+
+La observación mejoró la evidencia: quien revise el documento ahora puede volver a ejecutar el benchmark en el mismo repositorio y comparar el orden de magnitud, sin depender de cifras presentadas como universales.

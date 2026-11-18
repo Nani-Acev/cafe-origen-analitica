@@ -1,0 +1,113 @@
+# Rendimiento del motor Café Origen · v0.2
+
+## Alcance y método
+
+Este informe clasifica las funciones de `src/analitica.js` y las operaciones principales de generación, instrumentación y reporte. `n` representa el número de ventas; `d`, ciudades distintas; `p`, productos distintos; `r`, clientes recurrentes; `k`, el límite del ranking; y `q`, fechas solicitadas. Se excluye el arreglo de entrada al calcular espacio y se incluye cualquier arreglo u objeto auxiliar o devuelto.
+
+Las mediciones se tomaron en Node.js con una muestra aleatoria de 10.000 ventas de `generarVentas`. Para las funciones analíticas se calentó una vez y se promediaron tres ejecuciones con `performance.now()`. Los helpers escalares se llamaron 10.000 veces. Los tiempos y contadores se pueden reproducir con `node src/medir-rendimiento.js`; cada ejecución genera nuevos datos aleatorios, así que los tiempos pueden variar. Los valores de este informe son evidencia de una ejecución, no garantías para otro equipo ni para otra distribución aleatoria.
+
+## Funciones analíticas
+
+| Función | Qué hace | Tiempo | Espacio | Justificación del código | Evidencia con 10.000 ventas |
+|---|---|---|---|---|---|
+| `limpiarTexto` | Recorta y normaliza un texto | O(s) | O(s) | Examina y devuelve una cadena de longitud s | 10.000 llamadas: 0,935 ms |
+| `claveTexto` | Normaliza texto para compararlo | O(s) | O(s) | Limpia, convierte y quita marcas sobre s caracteres | 10.000 llamadas: 3,010 ms |
+| `tieneTildes` | Comprueba si un texto conserva tildes | O(s) | O(s) | Normaliza y recorre la cadena | 10.000 llamadas: 2,315 ms |
+| `formatearNombreLugar` | Da formato visible a un lugar | O(s) | O(s) | Divide el texto en palabras y crea una lista temporal | 10.000 llamadas: 3,066 ms |
+| `cantidadDe` | Lee y valida cantidad | O(1) | O(1) | Opera sobre un campo | 10.000 llamadas: 0,186 ms |
+| `precioDe` | Lee y valida precio | O(1) | O(1) | Opera sobre un campo | 10.000 llamadas: 0,199 ms |
+| `esVentaValida` | Comprueba que cantidad sea positiva | O(1) | O(1) | Una validación por venta recibida | 10.000 llamadas: 0,309 ms |
+| `valorVenta` | Calcula cantidad por precio | O(1) | O(1) | Combina dos lecturas y una multiplicación | 10.000 llamadas: 0,265 ms |
+| `contarVentasValidas` | Cuenta ventas con cantidad positiva | O(n) | O(1) | Un `for...of`, un contador escalar | 10.000 registros: 0,020 ms |
+| `totalVendido` | Suma valor de ventas | O(n) | O(1) | Una visita por registro y un acumulador | 10.000 registros: 0,096 ms; 10.000 visitas instrumentadas |
+| `unidadesVendidas` | Suma unidades | O(n) | O(1) | Una visita por registro y un acumulador | 10.000 registros: 0,116 ms |
+| `ventaMayor` | Devuelve la venta válida de mayor valor | O(n) | O(1) | Una pasada y dos variables para el máximo | 10.000 registros: 0,034 ms; 49.999 operaciones instrumentadas |
+| `ticketPromedio` | Promedia ventas válidas | O(n) | O(1) | Una pasada, suma y contador; evita dividir por cero | 10.000 registros: 0,042 ms |
+| `ventasPorCiudad` | Suma ventas de una ciudad | O(n) | O(1) | Una pasada y un acumulador; normaliza cada ciudad | 10.000 registros: 3,434 ms |
+| `totalCiudadCadena` | Suma una ciudad con métodos encadenados | O(n) | O(n) | `map`, `filter`, `map`, `reduce`; crea tres arreglos intermedios y objetos por venta | 10.000 registros, Bogotá: 3,519 ms |
+| `totalCiudadUnaPasada` | Suma una ciudad con un solo ciclo | O(n) | O(1) | Un `for...of`, una clave y un acumulador | 10.000 registros, Bogotá: 3,183 ms |
+| `totalVendidoM` | Suma valores con métodos | O(n) | O(n) | `map` materializa n valores; `reduce` suma | 10.000 registros: 0,391 ms |
+| `unidadesVendidasM` | Suma cantidades con métodos | O(n) | O(n) | `map` crea un arreglo temporal de n cantidades | 10.000 registros: 0,243 ms |
+| `ventasPorCiudadM` | Filtra una ciudad y suma valores | O(n) | O(n) | `filter` y `map` crean arreglos de hasta n elementos | 10.000 registros, Bogotá: 3,167 ms |
+| `totalPorCiudad` | Agrupa dinero por ciudad | O(n + d) = O(n) | O(d), peor O(n) | `reduce` visita n ventas; el diccionario y la conversión final guardan d ciudades | 10.000 registros: 10,646 ms; 30.008 operaciones instrumentadas |
+| `agruparPorProducto` (interna) | Agrupa valor y unidades por producto | O(n + p) = O(n) | O(p), peor O(n) | `reduce` visita n ventas y guarda p grupos distintos | 10.000 visitas; su costo está incluido en las funciones siguientes |
+| `unidadesPorProducto` | Suma unidades por producto | O(n + p) = O(n) | O(p), peor O(n) | Agrupa n ventas y crea el objeto de salida con p productos | 10.000 registros: 5,274 ms |
+| `topProductosPorValor` | Ordena productos por valor y devuelve k | O(n + p log p) | O(p + k) = O(p) si k ≤ p | Agrupa n ventas, copia p grupos, ordena esa copia y corta con `slice` | 10.000 registros, top 3: 5,368 ms |
+| `ventasOrdenadasPorValor` | Devuelve ventas ordenadas por valor | O(n log n) | O(n) | `[...ventas]` copia n elementos y `sort` los ordena | 10.000 registros: 1,818 ms |
+| `esFechaValida` | Valida una fecha | O(s) | O(s) | Comprueba formato y crea una cadena/fecha auxiliar; s es longitud de fecha | 10.000 llamadas: 8,529 ms |
+| `ventasDelDia` | Resume las ventas de una fecha | O(n) | O(n) | `filter` crea una lista de hasta n ventas; luego calcula sus indicadores | 10.000 registros: 0,892 ms |
+| `clientesRecurrentes` | Encuentra clientes con más de una compra | O(n³) peor caso | O(r), peor O(n) | Ciclos de pares O(n²) y `includes` puede recorrer hasta r clientes en cada coincidencia | 10.000 registros: 388,951 ms; en 100.000: 58,632 s |
+
+`s` es el largo del texto de entrada. Para una venta cuyo tamaño de campo no crece con el historial, esos helpers son O(1) respecto a n. En `topProductosPorValor`, `p` puede llegar a n; con el catálogo actual p es pequeño y acotado.
+
+## Instrumentación y generación
+
+| Función | Qué hace | Tiempo | Espacio | Justificación | Evidencia con 10.000 ventas |
+|---|---|---|---|---|---|
+| `enteroAleatorio` | Escoge un entero en un rango | O(1) | O(1) | Cálculo escalar | No depende de n |
+| `generarVentas` | Crea n ventas de prueba | O(n) | O(n) | Un ciclo crea y almacena cada registro de salida | 10.000 ventas: 1,140 ms |
+| `contarOperacion` | Incrementa un contador compartido | O(1) | O(1) | Actualiza una propiedad numérica | Una operación por llamada |
+| `totalVendidoInstrumentado` | Suma y cuenta visitas | O(n) | O(1) | Un ciclo; una visita contada por registro | 10.000 operaciones; 0,288 ms |
+| `ventaMayorInstrumentada` | Busca máximo y cuenta visitas/comparaciones | O(n) | O(1) | Un ciclo y variables escalares | 49.999 operaciones; 0,416 ms |
+| `totalPorCiudadInstrumentado` | Agrupa ciudades y cuenta el trabajo | O(n + d) | O(d) | Un ciclo más el diccionario de d ciudades | 30.008 operaciones; 4,311 ms |
+| `primeraVentaInstrumentada` | Accede al primer registro y cuenta el acceso | O(1) | O(1) | Comprueba longitud y accede al índice cero | 2 operaciones; <0,001 ms |
+
+## Ensamblado del reporte
+
+El reporte es una ruta de ejecución que llama a las funciones analíticas, no otra fórmula de negocio. Para que su costo también tenga evidencia, se midieron sus dos puntos de entrada:
+
+| Función | Tiempo | Espacio | Justificación y medición con 10.000 ventas |
+|---|---|---|---|
+| `generarReporte` | O(n log n + qn + p log p); con q fijo, O(n log n) | O(n + p + d + q) | Ordena las fechas del resumen, agrupa ciudades/productos y filtra una pasada por cada fecha. Con las dos fechas predeterminadas promedió 26,324 ms. |
+| `revisarReporte` | O(n + d) = O(n) | O(d) | Vuelve a agrupar ciudades, crea claves y un `Set`; promedió 10,826 ms. |
+
+Los formateadores (`pesos`, `numero`, `porcentaje`, `titulo`, `dato`, `describirVenta`) son O(1) respecto a n por llamada. `tabla` ocupa O(f) para f filas. `seccionResumen` ocupa O(n) memoria temporal por la lista de fechas; `seccionCiudades` O(d), `seccionProductos` y `seccionTop` O(p), y `seccionDias` O(n + q) de memoria pico. En tiempo, las secciones de ciudades y productos también incluyen el ordenamiento de sus grupos; `seccionDias` hace O(qn) trabajo si se consultan q fechas.
+
+## Proyección a 1.000.000 de ventas
+
+Las proyecciones lineales multiplican el tiempo de n=10.000 por 100. Para O(n log n), el factor es aproximadamente 150: `(1.000.000 log 1.000.000) / (10.000 log 10.000)`. Se mantienen las fechas predeterminadas del reporte (`q = 2`) y el catálogo actual. Para clientes recurrentes se usa la medición real de 100.000 y el crecimiento cuadrático observado en datos generados. No se ejecutaron las funciones con un millón de registros.
+
+| Operación / reporte | Evidencia de 10.000 | Modelo de proyección | Estimación para 1.000.000 |
+|---|---:|---|---:|
+| Resumen: `totalVendido` | 0,096 ms | O(n), ×100 | 9,6 ms |
+| Unidades: `unidadesVendidas` | 0,116 ms | O(n), ×100 | 11,6 ms |
+| Máximo: `ventaMayor` | 0,034 ms | O(n), ×100 | 3,4 ms |
+| Ticket promedio | 0,042 ms | O(n), ×100 | 4,2 ms |
+| Total de una ciudad, cadena | 3,519 ms | O(n), ×100 | 352 ms |
+| Total de una ciudad, una pasada | 3,183 ms | O(n), ×100 | 318 ms |
+| Total de todas las ciudades | 10,646 ms | O(n), ×100 | 1,065 s |
+| Unidades por producto | 5,274 ms | O(n), ×100 | 527 ms |
+| Top 3 productos | 5,368 ms | O(n + p log p), catálogo fijo, ×100 | 537 ms |
+| Ordenar ventas | 1,818 ms | O(n log n), ×150 | 273 ms |
+| Resumen de un día | 0,892 ms | O(n), ×100 por fecha | 89 ms por fecha |
+| Reporte completo (dos fechas) | 26,324 ms | O(n log n), ×150 | 3,95 s |
+| Validación del reporte | 10,826 ms | O(n), ×100 | 1,08 s |
+| Generar un millón de filas sintéticas | 1,140 ms para 10.000 | O(n), ×100 | 114 ms |
+| Clientes recurrentes | 58,632 s para 100.000 | O(n²) observado en este generador, ×100 | 97,7 min |
+
+La proyección de clientes recurrentes es especialmente incierta: los datos generados no cubren todas las distribuciones posibles y el peor caso del algoritmo es O(n³) por `includes`. Por eso 97,7 minutos es una estimación del patrón observado, no un límite superior ni un SLA. La implementación no debe procesar un millón de ventas en una ruta interactiva sin optimizarla primero.
+
+## Riesgos, de mayor a menor
+
+El orden considera primero el peor crecimiento temporal, luego la memoria auxiliar y, finalmente, la medición en datos generados. Las proyecciones describen esta ejecución; las clases Big O describen cómo puede crecer el código.
+
+1. **`clientesRecurrentes` — riesgo crítico.** Su peor caso es O(n³) por repetir `includes` sobre el arreglo de clientes recurrentes dentro de pares coincidentes. Ya tardó 58,632 s con 100.000 ventas generadas; el modelo cuadrático observado proyecta casi 98 minutos para un millón.
+2. **`generarReporte` — riesgo alto de CPU y memoria.** Ordena n fechas, procesa los registros para distintos indicadores y filtra una vez por cada fecha solicitada. También mantiene arrays y líneas del reporte; la medición proyecta unos 4,10 s y memoria O(n) con un millón.
+3. **`ventasOrdenadasPorValor` — riesgo alto de memoria.** Ordenar requiere O(n log n) tiempo y la copia `[...ventas]` usa O(n) memoria adicional.
+4. **Cadenas de métodos y filtros diarios — riesgo de memoria.** `totalCiudadCadena`, `ventasPorCiudadM`, `totalVendidoM`, `unidadesVendidasM` y `ventasDelDia` materializan arreglos O(n). Su tiempo es lineal, pero hay más objetos vivos y presión sobre el recolector.
+5. **Agrupaciones y rankings — riesgo medio.** `totalPorCiudad`, `unidadesPorProducto` y `topProductosPorValor` guardan grupos y copias O(d) u O(p). Con el catálogo actual los grupos son pocos; con catálogos abiertos pueden acercarse a n.
+6. **Recorridos escalares y `totalCiudadUnaPasada` — riesgo bajo.** Son O(n) en tiempo y O(1) en espacio; no retienen colecciones proporcionales al historial.
+
+## Plan de optimización
+
+La primera prioridad es `clientesRecurrentes`. Hoy compara cada venta contra las posteriores y, al encontrar coincidencias, busca de nuevo el cliente en `recurrentes` con `includes`. Ese trabajo se repite para el mismo cliente y puede escanear una lista creciente.
+
+La mejora propuesta, aún no implementada, es recorrer las ventas una sola vez y guardar en un `Map` el contador de compras por cliente. Después, un segundo recorrido del mapa seleccionaría los clientes con conteo mayor a uno. Así se reemplazan las comparaciones de pares y las búsquedas repetidas por conteos directos: tiempo esperado O(n) y memoria O(u), donde u es la cantidad de clientes únicos. Antes de adoptar el cambio, se compararía la salida con la función actual en el conjunto de 12 ventas y en datos generados.
+
+## Fuentes reproducibles en el repositorio
+
+- `node src/medir.js`: operaciones contadas para n = 100, 1.000, 10.000 y 100.000.
+- `node src/medir-rendimiento.js`: promedios de tiempo con 10.000 ventas para las funciones analíticas y el reporte, más sus contadores instrumentados.
+- `node src/recurrentes.js`: tiempos de clientes recurrentes para 1.000 a 16.000; `node src/recurrentes.js 100000` mide 100.000.
+- `node src/reporte.js`: reporte integrado y comprobaciones contra `NaN`, `undefined` y ciudades duplicadas.
+- `node src/verificar.js`: equivalencia de ciclos y métodos y conservación del arreglo original.

@@ -112,6 +112,30 @@ function ventasPorCiudad(ventas, ciudad) {
   return total;
 }
 
+function totalCiudadCadena(ventas, ciudad) {
+  const buscada = claveTexto(ciudad);
+  if (buscada === '') return 0;
+
+  return ventas
+    .map((venta) => ({ ciudad: claveTexto(venta.ciudad), venta }))
+    .filter((item) => item.ciudad === buscada)
+    .map((item) => valorVenta(item.venta))
+    .reduce((total, valor) => total + valor, 0);
+}
+
+function totalCiudadUnaPasada(ventas, ciudad) {
+  const buscada = claveTexto(ciudad);
+  if (buscada === '') return 0;
+
+  let total = 0;
+  for (const venta of ventas) {
+    if (venta && claveTexto(venta.ciudad) === buscada) {
+      total += valorVenta(venta);
+    }
+  }
+  return total;
+}
+
 function totalVendidoM(ventas) {
   return ventas
     .map((venta) => valorVenta(venta))
@@ -248,6 +272,8 @@ module.exports = {
   ventaMayor,
   ticketPromedio,
   ventasPorCiudad,
+  totalCiudadCadena,
+  totalCiudadUnaPasada,
   totalVendidoM,
   unidadesVendidasM,
   ventasPorCiudadM,
