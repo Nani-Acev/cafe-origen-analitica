@@ -363,3 +363,54 @@ Al multiplicar `n` por 10, `totalVendido` multiplica sus operaciones exactamente
 | `primeraVentaInstrumentada` | O(1) | No recorre el arreglo; solo comprueba su longitud y accede a `ventas[0]`. La cuenta se mantiene en 2. |
 
 No aparece O(n²): ninguna función tiene un ciclo anidado que recorra todas las ventas por cada venta. La medición cuenta operaciones algorítmicas, no tiempo de reloj; por eso permite comparar el crecimiento sin depender del equipo.
+
+---
+
+## MiniReto 6 · Clientes recurrentes y crecimiento cuadrático
+
+### Verificación con la muestra
+
+Se agregó `clientesRecurrentes(ventas)` a `src/analitica.js`, conservando el algoritmo del compañero: compara pares con dos ciclos y usa `includes` para no repetir clientes en el resultado. Con las 12 ventas del Día 1 devuelve, en orden, `['C01', 'C02', 'C03']`.
+
+### Traza manual con cinco registros
+
+Entrada en este orden: `[C01, C02, C01, C03, C02]`. Se cuentan comparaciones de cliente entre pares; un par distinto se compara una vez, no dos.
+
+| `i` | Cliente de `i` | `j` visitados | Resultado de pares / `includes` |
+|---:|---|---|---|
+| 0 | C01 | 1, 2, 3, 4 | C01≠C02; C01=C01, `includes([])` hace 0 comparaciones y se agrega C01; C01≠C03; C01≠C02 |
+| 1 | C02 | 2, 3, 4 | C02≠C01; C02≠C03; C02=C02, `includes([C01])` hace 1 comparación y se agrega C02 |
+| 2 | C01 | 3, 4 | C01≠C03; C01≠C02 |
+| 3 | C03 | 4 | C03≠C02 |
+
+Los ciclos comparan cada par una vez: `4 + 3 + 2 + 1 = 10`, que generaliza a `n(n - 1) / 2`. En esta traza `includes` añade una comparación (la consulta sobre el arreglo vacío no visita elementos y la consulta `[C01]` revisa uno). La función devuelve `[C01, C02]`.
+
+### Predicción antes de medir
+
+El ciclo interior realiza `n(n - 1) / 2` comparaciones, así que predigo que al duplicar `n` el tiempo se acercará a cuatro veces el anterior. La prueba con los tamaños pedidos está en `node src/recurrentes.js`; el script genera datos con `generarVentas` y mide solamente la función usando `console.time`/`console.timeEnd`.
+
+| Ventas | Tiempo observado (ms) | Factor frente al tamaño anterior |
+|---:|---:|---:|
+| 1.000 | 4,386 | — |
+| 2.000 | 15,140 | 3,45× |
+| 4.000 | 58,097 | 3,84× |
+| 8.000 | 261,859 | 4,51× |
+| 16.000 | 959,501 | 3,66× |
+
+Hay variación por el azar del generador y el entorno, especialmente en el tamaño pequeño. Desde 2.000 ventas, los factores se acercan a 4; concuerda con el crecimiento cuadrático O(n²) del ciclo de pares. Los resultados no son una promesa de duración exacta en otro equipo.
+
+### Estimaciones y medición de 100.000
+
+Extrapolando desde 16.000 con el modelo cuadrático, 100.000 ventas se estimaban en `0,959501 × (100.000 / 16.000)² ≈ 37,5 s`, por debajo del límite de dos minutos. Por eso se ejecutó la medición autorizada: `node src/recurrentes.js 100000` tardó **58,632 s** en este entorno.
+
+Para 1.000.000, se extrapola desde esa medición por un factor de `10² = 100`: `58,632 × 100 ≈ 5.863 s`, es decir, aproximadamente **97,7 minutos** (1 h 37 min 43 s). Es una estimación para datos generados con esta distribución; no se ejecutó el tamaño de un millón.
+
+### Costo oculto de `includes`
+
+`includes` recorre `recurrentes` hasta encontrar el cliente o llegar al final. Su costo puede ser O(n). Una cota conservadora para el código tal como está escrito es O(n³): hay O(n²) pares y cada consulta a `includes` podría revisar O(n) elementos. Esa cota sí puede alcanzarse: primero se pueden colocar muchos clientes repetidos para llenar `recurrentes`, y después muchas filas de un nuevo cliente. Cada par de ese último cliente vuelve a llamar a `includes` y recorre una lista larga.
+
+Con la distribución del generador (hasta `n/3` clientes), las mediciones se comportaron aproximadamente como O(n²), porque la cantidad de coincidencias y el tamaño de la búsqueda en `includes` crecieron juntos como una constante proporcional a `n`. El caso peor depende de cómo se distribuyan y ordenen los clientes; el tiempo real medido no elimina esa posibilidad.
+
+### Conclusión para la gerente
+
+El reporte tarda porque compara cada compra con muchas otras para descubrir quién volvió a comprar. Cuando el historial crece diez veces, esa revisión puede tardar cerca de cien veces más; además, buscar si el cliente ya está en la lista de recurrentes añade trabajo. Con un millón de ventas, la estimación ronda una hora y 38 minutos en este equipo. Conviene reemplazar esta búsqueda repetida por un conteo agrupado de clientes antes de usar el reporte con todo el año.
